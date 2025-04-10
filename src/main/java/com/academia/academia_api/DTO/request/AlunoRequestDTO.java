@@ -15,5 +15,3 @@ public class AlunoRequestDTO {
         private String plano;
         private Long instrutorId;
 }
-
-
