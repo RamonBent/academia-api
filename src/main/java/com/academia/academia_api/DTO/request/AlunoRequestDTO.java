@@ -6,7 +6,6 @@ import java.time.LocalDate;
 
 @Data
 public class AlunoRequestDTO {
-        private Long id;
         private String nome;
         private LocalDate dataNascimento;
         private String telefone;

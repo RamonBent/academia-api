@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
+@Table(name = "alunos")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
