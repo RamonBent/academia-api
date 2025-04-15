@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
+@Table(name = "avaliacoes_fisicas")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -1,4 +1,4 @@
-package com.academia.academia_api.controlleer;
+package com.academia.academia_api.controller;
 
 import com.academia.academia_api.DTO.request.AlunoRequestDTO;
 import com.academia.academia_api.DTO.response.AlunoResponseDTO;
