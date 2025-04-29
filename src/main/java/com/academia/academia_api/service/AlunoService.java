@@ -72,4 +72,8 @@ public class AlunoService {
         }
         alunoRepository.deleteById(id);
     }
+
+    public List<Aluno> buscarPorNome(String nome) {
+        return alunoRepository.findByNomeContainingIgnoreCase(nome);
+    }
 }

@@ -2,6 +2,7 @@ package com.academia.academia_api.controller;
 
 import com.academia.academia_api.DTO.request.AlunoRequestDTO;
 import com.academia.academia_api.DTO.response.AlunoResponseDTO;
+import com.academia.academia_api.model.Aluno;
 import com.academia.academia_api.service.AlunoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -41,5 +42,10 @@ public class AlunoController {
     public ResponseEntity<Void> excluirAluno(@PathVariable Long id) {
         alunoService.deletarAluno(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/buscar")
+    public List<Aluno> buscarPorNome(@RequestParam String nome) {
+        return alunoService.buscarPorNome(nome);
     }
 }
