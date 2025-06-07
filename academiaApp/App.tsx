@@ -1,20 +1,44 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+// In App.js in a new project
 
-export default function App() {
+import * as React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import HomeScreen from './HomeScreen';
+import Sobre from './Sobre';
+import { Image } from 'react-native';
+
+const Stack = createNativeStackNavigator();
+
+function LogoTitle() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <Image
+      style={{ width: 50, height: 50 }}
+      source={{uri: 'https://github.com/user-attachments/assets/6a07ea00-c120-4863-9b37-77f292ca5487'}}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName='Home'>
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen} 
+        options={{
+          title: 'Academia App',
+          headerStyle: {
+            backgroundColor: '#000000',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen name="Sobre" component={Sobre} />
+    </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
