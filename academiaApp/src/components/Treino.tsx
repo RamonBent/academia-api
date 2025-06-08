@@ -17,7 +17,7 @@ export default function Treino({title, duration, calories, numberExercises} : Tr
     const navigation = useNavigation();
 
     return(
-        <TouchableOpacity style={[styles.container, {width: width * 0.9, height: height * 0.15}]} onPress={() => navigation.navigate('Sobre')}>
+        <TouchableOpacity style={[styles.container, {width: width * 0.9, height: height * 0.15}]}>
             <View style={styles.infos}>
                     <Text style={{textAlign: "center", fontWeight: '800', fontSize: 20, marginBottom: 5}}>{title}</Text>
 

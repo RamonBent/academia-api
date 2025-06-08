@@ -1,5 +1,5 @@
 import { Button, Text, View } from "react-native";
-import Treino from "./components/Treino";
+import Treino from "../components/Treino";
 
 export default function HomeScreen() {
   return (
