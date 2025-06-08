@@ -1,13 +1,5 @@
-// In App.js in a new project
-
-import * as React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import Routes from './src/routes';
+import { Slot } from 'expo-router';
 
 export default function App() {
-  return (
-    <NavigationContainer>
-      <Routes/>
-    </NavigationContainer>
-  );
+  return <Slot />;
 }
