@@ -1,9 +1,23 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useContext } from 'react';
+import { View, Text, StyleSheet, Switch } from 'react-native';
+import { ThemeContext } from '../../context/ThemeContext';
 
 export default function Tab() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
+  const isDark = theme === 'dark';
+
   return (
-    <View style={styles.container}>
-      <Text>Tab [Home|Settings]</Text>
+    <View style={[styles.container, { backgroundColor: isDark ? '#222' : '#fff' }]}>
+      <Text style={{ color: isDark ? '#fff' : '#222', fontSize: 18, marginBottom: 16 }}>
+        Tema atual: {theme === 'dark' ? 'Escuro' : 'Claro'}
+      </Text>
+      <Switch
+        value={isDark}
+        onValueChange={toggleTheme}
+        thumbColor={isDark ? '#fff' : '#222'}
+        trackColor={{ false: '#ccc', true: '#444' }}
+      />
     </View>
   );
 }
