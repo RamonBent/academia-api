@@ -3,21 +3,20 @@ import { Text, Touchable, TouchableOpacity, StyleSheet, View, Image, Dimensions 
 import {useWindowDimensions} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-
-interface TreinoProps{
-    title: string,
-    duration: string,
-    calories: number,
-    numberExercises: string
-}
-
+export type TreinoProps = {
+  title: string;
+  duration: string;
+  calories: number;
+  numberExercises: string;
+  onPress?: () => void;
+};
 
 export default function Treino({title, duration, calories, numberExercises} : TreinoProps){
     const {height, width} = useWindowDimensions();
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
 
     return(
-        <TouchableOpacity style={[styles.container, {width: width * 0.9, height: height * 0.15}]}>
+        <TouchableOpacity style={[styles.container, {width: width * 0.9, height: height * 0.15}]} onPress={() => navigation.navigate('Sobre')}>
             <View style={styles.infos}>
                     <Text style={{textAlign: "center", fontWeight: '800', fontSize: 20, marginBottom: 5}}>{title}</Text>
 
@@ -33,7 +32,7 @@ export default function Treino({title, duration, calories, numberExercises} : Tr
                     <Text numberOfLines={1}>🏃 {numberExercises}</Text>
                 </View>
             </View>        
-            <Image style={styles.imagem} source={{uri: 'https://avatars.githubusercontent.com/u/143836390?v=4'}} />
+            <Image style={styles.imagem} source={{uri: 'https://esportenanet.com/wp-content/uploads/2024/10/Chris-Bumstead-idade-altura-peso-titulos-e-historia.png'}} />
         </TouchableOpacity>
     );
 }

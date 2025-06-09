@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ExerciseCard from '../../components/ExerciseCard';
+import ExerciseCard from '../../components/Treino';
 import { ThemeContext } from '../../context/ThemeContext';
 
 const exercises = [

@@ -4,14 +4,23 @@ import {
   TextInput, 
   StyleSheet, 
   View, 
-  Image,
+  Button,
   useWindowDimensions 
 } from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 
-export default function Login() {
-  const [email, setEmail] = useState('Kaik-Aciole@01');
-  const [password, setPassword] = useState('**********');
+export default function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const { height } = useWindowDimensions();
+  const { login } = useAuth();
+
+  const handleLogin = () => {
+    console.log('Login button pressed');
+    login(email);
+    router.replace('/(tabs)');
+  };
 
   return (
     <View style={[styles.container, { height }]}>
@@ -23,6 +32,7 @@ export default function Login() {
           style={styles.input}
           value={email}
           onChangeText={setEmail}
+          placeholder="Digite seu e-mail"
         />
       </View>
 
@@ -37,11 +47,7 @@ export default function Login() {
       </View>
 
       <View style={styles.footer}>
-        <Image
-          source={require('../assets/headphones.png')} // ou qualquer ícone semelhante
-          style={styles.icon}
-        />
-        <Text style={styles.welcomeText}>BEM VINDO AO NOSSO APP</Text>
+        <Button title="Entrar" onPress={handleLogin} />
       </View>
     </View>
   );
