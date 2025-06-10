@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import ExerciseCard from '../../components/ExerciseCard';
+import ExerciseCard from '../../components/Treino';
+import { ThemeContext } from '../../context/ThemeContext';
 
 const exercises = [
   { 
@@ -87,9 +88,11 @@ const exercises = [
 
 export default function ExerciciosScreen() {
   const [selected, setSelected] = useState<any>(null);
+  const { theme } = useContext(ThemeContext);
+  const isDark = theme === 'dark';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#222' : '#F3F6FA' }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {exercises.map((ex, idx) => (
           <View key={idx} style={styles.cardWrapper}>
@@ -105,7 +108,7 @@ export default function ExerciciosScreen() {
       </ScrollView>
       <Modal visible={!!selected} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#333' : '#fff' }]}>
             {selected && (
               <>
                 <Image
@@ -113,10 +116,10 @@ export default function ExerciciosScreen() {
                   style={styles.image}
                   resizeMode="cover"
                 />
-                <Text style={styles.modalTitle}>{selected.title}</Text>
-                <Text style={styles.modalTipo}>{selected.duration} - {selected.calories} kcal</Text>
-                <Text style={styles.modalDesc}>{selected.descricao}</Text>
-                <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
+                <Text style={[styles.modalTitle, { color: isDark ? '#fff' : '#222' }]}>{selected.title}</Text>
+                <Text style={[styles.modalTipo, { color: isDark ? '#ccc' : '#666' }]}>{selected.duration} - {selected.calories} kcal</Text>
+                <Text style={[styles.modalDesc, { color: isDark ? '#eee' : '#444' }]}>{selected.descricao}</Text>
+                <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDark ? '#444' : '#222' }]} onPress={() => setSelected(null)}>
                   <Text style={{ color: '#fff', fontWeight: 'bold' }}>Fechar</Text>
                 </TouchableOpacity>
               </>
@@ -131,7 +134,6 @@ export default function ExerciciosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F6FA',
     paddingTop: 48,
     paddingHorizontal: 16,
   },
@@ -147,7 +149,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardWrapper: {
-    marginBottom: 18, // Add vertical gap between cards
+    marginBottom: 18,
   },
   modalOverlay: {
     flex: 1,
@@ -156,7 +158,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,
     width: 320,
@@ -185,7 +186,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   closeBtn: {
-    backgroundColor: '#222',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 8,
