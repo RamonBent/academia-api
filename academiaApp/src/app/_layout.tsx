@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
-import { AuthProvider, useAuth } from '../context/AuthContext';
-import { ThemeProvider } from '../context/ThemeProvider';
+import { ThemeContext } from 'context/ThemeContext';
+import { AuthProvider, useAuth } from 'context/AuthContext';
+import { ThemeProvider } from 'context/ThemeProvider';
 
 function MainLayout() {
   const { loggedIn } = useAuth();

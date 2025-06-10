@@ -1,7 +1,7 @@
 import { View, Text } from 'react-native';
 import { useContext } from 'react';
-import { ThemeContext } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { ThemeContext } from 'context/ThemeContext';
+import { useAuth } from 'context/AuthContext';
 
 export default function PerfilScreen() {
   const { theme } = useContext(ThemeContext);
