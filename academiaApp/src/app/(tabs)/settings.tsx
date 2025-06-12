@@ -1,6 +1,6 @@
+import { ThemeContext } from 'context/ThemeContext';
 import { useContext } from 'react';
 import { View, Text, StyleSheet, Switch } from 'react-native';
-import { ThemeContext } from '../../context/ThemeContext';
 
 export default function Tab() {
   const { theme, toggleTheme } = useContext(ThemeContext);
