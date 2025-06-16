@@ -13,7 +13,7 @@ export default function CadastroStackLayout() {
       <Stack.Screen name="ListarAlunos" options={{ title: 'Listar Alunos' }} />
       <Stack.Screen name="ListarAvaliacaoFisica" options={{ title: 'Listar Avaliações Física' }} />
       <Stack.Screen name="ListarExercicios" options={{ title: 'Listar Exercícios' }} />
-      <Stack.Screen name="ListasInstrutores" options={{ title: 'Listar Instrutores' }} />
+      <Stack.Screen name="ListarInstrutores" options={{ title: 'Listar Instrutores' }} />
       <Stack.Screen name="ListarTreinos" options={{ title: 'Listar Treinos' }} />
     </Stack>
   );

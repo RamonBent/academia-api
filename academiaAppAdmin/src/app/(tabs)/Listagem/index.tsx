@@ -19,15 +19,15 @@ export default function Listagem() {
       />
       <CustomButton
         title="Listar Exercicios"
-        onPress={() => router.push('/Cadastro/ExercicioForm')}
+        onPress={() => router.push('/Listagem/ListarExercicios')}
       />
       <CustomButton
         title="Listar Instrutores"
-        onPress={() => router.push('/Cadastro/InstrutorForm')}
+        onPress={() => router.push('/Listagem/ListarInstrutores')}
       />
       <CustomButton
         title="Listar Treinos"
-        onPress={() => router.push('/Cadastro/TreinoForm')}
+        onPress={() => router.push('/Listagem/ListarTreinos')}
       />
     </View>
   );
