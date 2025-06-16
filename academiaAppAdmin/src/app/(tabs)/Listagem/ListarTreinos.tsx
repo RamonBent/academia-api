@@ -30,6 +30,10 @@ export default function ListarTreinos() {
     await AsyncStorage.setItem(TREINO_STORAGE_KEY, JSON.stringify(filtered));
   };
 
+  const handleEdit = (id) => {
+    router.push({ pathname: '/Cadastro/TreinoForm', params: { id } });
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Lista de Treinos</Text>
@@ -48,7 +52,7 @@ export default function ListarTreinos() {
             </View>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => {/* Ação de Editar */}}
+              onPress={() => handleEdit(treino.id)}
             >
               <Text style={styles.editButtonText}>Editar</Text>
             </TouchableOpacity>

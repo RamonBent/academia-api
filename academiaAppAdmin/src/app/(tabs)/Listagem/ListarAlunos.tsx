@@ -6,53 +6,57 @@ import { useRouter } from 'expo-router';
 const STUDENTS_STORAGE_KEY = '@myApp:students';
 
 export default function ListarAlunos() {
-  const [students, setStudents] = useState([]);
+  const [alunos, setAlunos] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
-    const loadStudents = async () => {
+    const loadAlunos = async () => {
       try {
-        const storedStudents = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
-        if (storedStudents !== null) {
-          setStudents(JSON.parse(storedStudents));
+        const storedAlunos = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
+        if (storedAlunos !== null) {
+          setAlunos(JSON.parse(storedAlunos));
         }
       } catch (error) {
-        console.error("Error loading students from AsyncStorage", error);
+        console.error("Error loading alunos from AsyncStorage", error);
       }
     };
 
-    loadStudents();
+    loadAlunos();
   }, []);
 
   const handleDelete = async (id) => {
-    const filtered = students.filter((student) => student.id !== id);
-    setStudents(filtered);
+    const filtered = alunos.filter((aluno) => aluno.id !== id);
+    setAlunos(filtered);
     await AsyncStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(filtered));
+  };
+
+  const handleEdit = (id) => {
+    router.push({ pathname: '/Cadastro/AlunoForm', params: { id } });
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Lista de alunos cadastrados</Text>
-      {students.length === 0 ? (
+      <Text style={styles.title}>Lista de Alunos</Text>
+      {alunos.length === 0 ? (
         <Text style={styles.emptyText}>Nenhum aluno cadastrado.</Text>
       ) : (
-        students.map((student, index) => (
-          <View key={student.id || index} style={styles.studentCardRow}>
-            <View style={styles.studentCard}>
-              <Text style={styles.studentName}>{student.nome || 'Nome não informado'}</Text>
-              <Text>Idade: {student.idade}</Text>
-              <Text>Email: {student.email}</Text>
-              <Text>Telefone: {student.telefone}</Text>
+        alunos.map((aluno, index) => (
+          <View key={aluno.id || index} style={styles.cardRow}>
+            <View style={styles.card}>
+              <Text style={styles.name}>{aluno.nome || 'Nome não informado'}</Text>
+              <Text>Idade: {aluno.idade}</Text>
+              <Text>Email: {aluno.email}</Text>
+              <Text>Telefone: {aluno.telefone}</Text>
             </View>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => {/* Ação de Editar */}}
+              onPress={() => handleEdit(aluno.id)}
             >
               <Text style={styles.editButtonText}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={() => handleDelete(student.id)}
+              onPress={() => handleDelete(aluno.id)}
             >
               <Text style={styles.deleteButtonText}>Excluir</Text>
             </TouchableOpacity>
@@ -79,18 +83,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
   },
-  studentCardRow: {
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
   },
-  studentCard: {
+  card: {
     backgroundColor: '#e0e0e0',
     padding: 15,
     borderRadius: 8,
     flex: 1,
   },
-  studentName: {
+  name: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 5,

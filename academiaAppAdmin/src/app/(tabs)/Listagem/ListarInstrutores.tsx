@@ -30,6 +30,10 @@ export default function ListarInstrutores() {
         await AsyncStorage.setItem(INSTRUTOR_STORAGE_KEY, JSON.stringify(filtered));
     };
 
+    const handleEdit = (id) => {
+        router.push({ pathname: '/Cadastro/InstrutorForm', params: { id } });
+    };
+
     return (
         <ScrollView style={styles.container}>
             <Text style={styles.title}>Lista de Instrutores</Text>
@@ -47,7 +51,7 @@ export default function ListarInstrutores() {
                         </View>
                         <TouchableOpacity
                             style={styles.editButton}
-                            onPress={() => {/* Ação de Editar */ }}
+                            onPress={() => handleEdit(instrutor.id)}
                         >
                             <Text style={styles.editButtonText}>Editar</Text>
                         </TouchableOpacity>

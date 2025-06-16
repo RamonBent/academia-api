@@ -30,6 +30,10 @@ export default function ListarExercicios() {
     await AsyncStorage.setItem(EXERCICIO_STORAGE_KEY, JSON.stringify(filtered));
   };
 
+  const handleEdit = (id) => {
+    router.push({ pathname: '/Cadastro/ExercicioForm', params: { id } });
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Lista de Exercícios</Text>
@@ -45,7 +49,7 @@ export default function ListarExercicios() {
             </View>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => {/* Ação de Editar */}}
+              onPress={() => handleEdit(exercicio.id)}
             >
               <Text style={styles.editButtonText}>Editar</Text>
             </TouchableOpacity>

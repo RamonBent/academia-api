@@ -30,6 +30,10 @@ export default function ListarAvaliacaoFisica() {
     await AsyncStorage.setItem(AVALIACAO_STORAGE_KEY, JSON.stringify(filtered));
   };
 
+  const handleEdit = (id) => {
+    router.push({ pathname: '/Cadastro/AvaliacaoFisicaForm', params: { id } });
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Lista de avaliações físicas</Text>
@@ -48,7 +52,7 @@ export default function ListarAvaliacaoFisica() {
             </View>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => {/* Ação de Editar */}}
+              onPress={() => handleEdit(avaliacao.id)}
             >
               <Text style={styles.editButtonText}>Editar</Text>
             </TouchableOpacity>

@@ -1,66 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TREINO_STORAGE_KEY = '@myApp:treinos';
 
 export default function TreinoForm() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [alunoId, setAlunoId] = useState('');
   const [instrutorId, setInstrutorId] = useState('');
   const [nomeTreino, setNomeTreino] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadTreinos = async () => {
-      try {
-        const storedTreinos = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-        if (storedTreinos !== null) {
-          let treinos = JSON.parse(storedTreinos);
-          console.log("Loaded treinos:", treinos);
+    const loadTreino = async () => {
+      if (id) {
+        try {
+          const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
+          if (stored) {
+            const treinos = JSON.parse(stored);
+            const treino = treinos.find((a) => a.id === id);
+            if (treino) {
+              setAlunoId(treino.alunoId);
+              setInstrutorId(treino.instrutorId);
+              setNomeTreino(treino.nomeTreino);
+              setDataInicio(treino.dataInicio);
+              setDataFim(treino.dataFim);
+              setObjetivo(treino.objetivo);
+              setIsEdit(true);
+            }
+          }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar treino para edição.');
         }
-      } catch (error) {
-        console.error("Error loading treinos from AsyncStorage", error);
       }
     };
-
-    loadTreinos();
-  }, []);
+    loadTreino();
+  }, [id]);
 
   const handleSubmit = async () => {
     if (alunoId && instrutorId && nomeTreino && dataInicio && dataFim && objetivo) {
-      const newTreino = {
-        id: Date.now().toString(),
-        alunoId,
-        instrutorId,
-        nomeTreino,
-        dataInicio,
-        dataFim,
-        objetivo,
-      };
-
       try {
-        const existingTreinosJson = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-        let treinos = existingTreinosJson ? JSON.parse(existingTreinosJson) : [];
-
-        treinos.push(newTreino);
-
+        const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
+        let treinos = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          treinos = treinos.map((a) =>
+            a.id === id
+              ? { ...a, alunoId, instrutorId, nomeTreino, dataInicio, dataFim, objetivo }
+              : a
+          );
+        } else {
+          treinos.push({
+            id: Date.now().toString(),
+            alunoId,
+            instrutorId,
+            nomeTreino,
+            dataInicio,
+            dataFim,
+            objetivo,
+          });
+        }
         await AsyncStorage.setItem(TREINO_STORAGE_KEY, JSON.stringify(treinos));
-
-        Alert.alert('Treino cadastrado com sucesso!', `Dados do Treino\nAluno ID: ${alunoId}\nInstrutor ID: ${instrutorId}\nNome: ${nomeTreino}\nInício: ${dataInicio}\nFim: ${dataFim}\nObjetivo: ${objetivo}`);
-
-        setAlunoId('');
-        setInstrutorId('');
-        setNomeTreino('');
-        setDataInicio('');
-        setDataFim('');
-        setObjetivo('');
+        router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Ocorreu um erro ao salvar o treino. Por favor, tente novamente.');
-        console.error("Error saving treino to AsyncStorage", error);
+        Alert.alert('Erro', 'Erro ao salvar treino.');
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -69,7 +76,9 @@ export default function TreinoForm() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Formulário de Cadastro de Treino</Text>
+      <Text style={styles.title}>
+        {isEdit ? 'Editar Treino' : 'Formulário de Cadastro de Treino'}
+      </Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>ID do Aluno:</Text>
@@ -134,7 +143,9 @@ export default function TreinoForm() {
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Salvar Treino</Text>
+        <Text style={styles.submitButtonText}>
+          {isEdit ? 'Salvar Alterações' : 'Salvar Treino'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
