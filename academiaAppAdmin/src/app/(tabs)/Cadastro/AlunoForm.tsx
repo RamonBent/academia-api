@@ -1,60 +1,69 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect } from 'react'; 
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 const STUDENTS_STORAGE_KEY = '@myApp:students';
 
 export default function AlunoForm() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [nome, setNome] = useState('');
   const [idade, setIdade] = useState('');
   const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadStudents = async () => {
-      try {
-        const storedStudents = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
-        if (storedStudents !== null) {
-          let students = JSON.parse(storedStudents);
-          console.log("Loaded students:", students);
+    const loadStudent = async () => {
+      if (id) {
+        try {
+          const stored = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
+          if (stored) {
+            const students = JSON.parse(stored);
+            const aluno = students.find((a) => a.id === id);
+            if (aluno) {
+              setNome(aluno.nome);
+              setIdade(aluno.idade.toString());
+              setEmail(aluno.email);
+              setTelefone(aluno.telefone);
+              setIsEdit(true);
+            }
+          }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar aluno para edição.');
         }
-      } catch (error) {
-        console.error("Error loading students from AsyncStorage", error);
       }
     };
-
-    loadStudents();
-  }, []);
+    loadStudent();
+  }, [id]);
 
   const handleSubmit = async () => {
     if (nome && idade && email && telefone) {
-      const newStudent = {
-        id: Date.now().toString(),
-        idade: parseInt(idade),
-        email,
-        telefone,
-      };
-
       try {
-        const existingStudentsJson = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
-        let students = existingStudentsJson ? JSON.parse(existingStudentsJson) : [];
-
-        students.push(newStudent);
-
+        const stored = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
+        let students = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          // Edit mode: update existing
+          students = students.map((a) =>
+            a.id === id
+              ? { ...a, nome: nome.trim(), idade: parseInt(idade), email, telefone }
+              : a
+          );
+        } else {
+          // Create mode: add new
+          students.push({
+            id: Date.now().toString(),
+            nome: nome.trim(),
+            idade: parseInt(idade),
+            email,
+            telefone,
+          });
+        }
         await AsyncStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(students));
-
-        Alert.alert('Aluno cadastrado com sucesso!', `Dados do Aluno\nNome: ${nome}\nIdade: ${idade}\nEmail: ${email}\nTelefone: ${telefone}`);
-        
-        setNome('');
-        setIdade('');
-        setEmail('');
-        setTelefone('');
+        router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Ocorreu um erro ao salvar o aluno. Por favor, tente novamente.');
-        console.error("Error saving student to AsyncStorage", error);
+        Alert.alert('Erro', 'Erro ao salvar aluno.');
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -63,57 +72,55 @@ export default function AlunoForm() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Formulário de Cadastro de Aluno</Text>
-
+      <Text style={styles.title}>
+        {isEdit ? 'Editar Aluno' : 'Formulário de Cadastro de Aluno'}
+      </Text>
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nome Completo:</Text>
+        <Text style={styles.label}>Nome</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite o nome do aluno"
           value={nome}
           onChangeText={setNome}
+          placeholder="Nome do aluno"
         />
       </View>
-
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Idade:</Text>
+        <Text style={styles.label}>Idade</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite a idade"
-          keyboardType="numeric"
           value={idade}
           onChangeText={setIdade}
+          placeholder="Idade"
+          keyboardType="numeric"
         />
       </View>
-
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email:</Text>
+        <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite o email"
-          keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          placeholder="Email"
+          keyboardType="email-address"
         />
       </View>
-
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Telefone:</Text>
+        <Text style={styles.label}>Telefone</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite o telefone"
-          keyboardType="phone-pad"
           value={telefone}
           onChangeText={setTelefone}
+          placeholder="Telefone"
+          keyboardType="phone-pad"
         />
       </View>
-
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Salvar Aluno</Text>
+        <Text style={styles.submitButtonText}>
+          {isEdit ? 'Salvar Alterações' : 'Cadastrar'}
+        </Text>
       </TouchableOpacity>
-
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Cadastro</Text>
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
