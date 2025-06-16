@@ -1,57 +1,64 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
 
 export default function ExercicioForm() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [nomeExercicio, setNomeExercicio] = useState('');
   const [grupoMuscular, setGrupoMuscular] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadExercicios = async () => {
-      try {
-        const storedExercicios = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
-        if (storedExercicios !== null) {
-          let exercicios = JSON.parse(storedExercicios);
-          console.log("Loaded exercícios:", exercicios);
+    const loadExercicio = async () => {
+      if (id) {
+        try {
+          const stored = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
+          if (stored) {
+            const exercicios = JSON.parse(stored);
+            const exercicio = exercicios.find((a) => a.id === id);
+            if (exercicio) {
+              setNomeExercicio(exercicio.nomeExercicio);
+              setGrupoMuscular(exercicio.grupoMuscular);
+              setDescricao(exercicio.descricao);
+              setIsEdit(true);
+            }
+          }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar exercício para edição.');
         }
-      } catch (error) {
-        console.error("Error loading exercícios from AsyncStorage", error);
       }
     };
-
-    loadExercicios();
-  }, []);
+    loadExercicio();
+  }, [id]);
 
   const handleSubmit = async () => {
     if (nomeExercicio && grupoMuscular && descricao) {
-      const newExercicio = {
-        id: Date.now().toString(),
-        nomeExercicio,
-        grupoMuscular,
-        descricao,
-      };
-
       try {
-        const existingExerciciosJson = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
-        let exercicios = existingExerciciosJson ? JSON.parse(existingExerciciosJson) : [];
-
-        exercicios.push(newExercicio);
-
+        const stored = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
+        let exercicios = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          exercicios = exercicios.map((a) =>
+            a.id === id
+              ? { ...a, nomeExercicio, grupoMuscular, descricao }
+              : a
+          );
+        } else {
+          exercicios.push({
+            id: Date.now().toString(),
+            nomeExercicio,
+            grupoMuscular,
+            descricao,
+          });
+        }
         await AsyncStorage.setItem(EXERCICIO_STORAGE_KEY, JSON.stringify(exercicios));
-
-        Alert.alert('Exercício cadastrado com sucesso!', `Dados do Exercício\nNome: ${nomeExercicio}\nGrupo Muscular: ${grupoMuscular}\nDescrição: ${descricao}`);
-
-        setNomeExercicio('');
-        setGrupoMuscular('');
-        setDescricao('');
+        router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Ocorreu um erro ao salvar o exercício. Por favor, tente novamente.');
-        console.error("Error saving exercício to AsyncStorage", error);
+        Alert.alert('Erro', 'Erro ao salvar exercício.');
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -60,7 +67,9 @@ export default function ExercicioForm() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Formulário de Cadastro de Exercício</Text>
+      <Text style={styles.title}>
+        {isEdit ? 'Editar Exercício' : 'Formulário de Cadastro de Exercício'}
+      </Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Nome do Exercício:</Text>
@@ -95,7 +104,9 @@ export default function ExercicioForm() {
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Salvar Exercício</Text>
+        <Text style={styles.submitButtonText}>
+          {isEdit ? 'Salvar Alterações' : 'Salvar Exercício'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>

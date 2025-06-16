@@ -1,66 +1,83 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AVALIACAO_STORAGE_KEY = '@myApp:avaliacoesFisicas';
 
 export default function AvaliacaoFisicaForm() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [alunoId, setAlunoId] = useState('');
   const [dataAvaliacao, setDataAvaliacao] = useState('');
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
   const [imc, setImc] = useState('');
   const [percentualGordura, setPercentualGordura] = useState('');
+  const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadAvaliacoes = async () => {
-      try {
-        const storedAvaliacoes = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
-        if (storedAvaliacoes !== null) {
-          let avaliacoes = JSON.parse(storedAvaliacoes);
-          console.log("Loaded avaliações físicas:", avaliacoes);
+    const loadAvaliacao = async () => {
+      if (id) {
+        try {
+          const stored = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
+          if (stored) {
+            const avaliacoes = JSON.parse(stored);
+            const avaliacao = avaliacoes.find((a) => a.id === id);
+            if (avaliacao) {
+              setAlunoId(avaliacao.alunoId);
+              setDataAvaliacao(avaliacao.dataAvaliacao);
+              setPeso(avaliacao.peso.toString());
+              setAltura(avaliacao.altura.toString());
+              setImc(avaliacao.imc.toString());
+              setPercentualGordura(avaliacao.percentualGordura.toString());
+              setIsEdit(true);
+            }
+          }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar avaliação para edição.');
         }
-      } catch (error) {
-        console.error("Error loading avaliações físicas from AsyncStorage", error);
       }
     };
-
-    loadAvaliacoes();
-  }, []);
+    loadAvaliacao();
+  }, [id]);
 
   const handleSubmit = async () => {
     if (alunoId && dataAvaliacao && peso && altura && imc && percentualGordura) {
-      const newAvaliacao = {
-        id: Date.now().toString(),
-        alunoId,
-        dataAvaliacao,
-        peso: parseFloat(peso),
-        altura: parseFloat(altura),
-        imc: parseFloat(imc),
-        percentualGordura: parseFloat(percentualGordura),
-      };
-
       try {
-        const existingAvaliacoesJson = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
-        let avaliacoes = existingAvaliacoesJson ? JSON.parse(existingAvaliacoesJson) : [];
-
-        avaliacoes.push(newAvaliacao);
-
+        const stored = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
+        let avaliacoes = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          // Edit mode: update existing
+          avaliacoes = avaliacoes.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  alunoId,
+                  dataAvaliacao,
+                  peso: parseFloat(peso),
+                  altura: parseFloat(altura),
+                  imc: parseFloat(imc),
+                  percentualGordura: parseFloat(percentualGordura),
+                }
+              : a
+          );
+        } else {
+          // Create mode: add new
+          avaliacoes.push({
+            id: Date.now().toString(),
+            alunoId,
+            dataAvaliacao,
+            peso: parseFloat(peso),
+            altura: parseFloat(altura),
+            imc: parseFloat(imc),
+            percentualGordura: parseFloat(percentualGordura),
+          });
+        }
         await AsyncStorage.setItem(AVALIACAO_STORAGE_KEY, JSON.stringify(avaliacoes));
-
-        Alert.alert('Avaliação Física cadastrada com sucesso!', `Dados da Avaliação\nAluno ID: ${alunoId}\nData: ${dataAvaliacao}\nPeso: ${peso}kg\nAltura: ${altura}m\nIMC: ${imc}\n% Gordura: ${percentualGordura}`);
-
-        setAlunoId('');
-        setDataAvaliacao('');
-        setPeso('');
-        setAltura('');
-        setImc('');
-        setPercentualGordura('');
+        router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Ocorreu um erro ao salvar a avaliação física. Por favor, tente novamente.');
-        console.error("Error saving avaliação física to AsyncStorage", error);
+        Alert.alert('Erro', 'Erro ao salvar avaliação física.');
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -69,7 +86,9 @@ export default function AvaliacaoFisicaForm() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Formulário de Cadastro de Avaliação Física</Text>
+      <Text style={styles.title}>
+        {isEdit ? 'Editar Avaliação Física' : 'Formulário de Cadastro de Avaliação Física'}
+      </Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>ID do Aluno:</Text>
@@ -137,7 +156,9 @@ export default function AvaliacaoFisicaForm() {
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Salvar Avaliação</Text>
+        <Text style={styles.submitButtonText}>
+          {isEdit ? 'Salvar Alterações' : 'Salvar Avaliação'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>

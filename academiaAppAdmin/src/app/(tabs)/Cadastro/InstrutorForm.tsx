@@ -1,63 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const INSTRUTOR_STORAGE_KEY = '@myApp:instrutores';
 
 export default function InstrutorForm() {
   const router = useRouter();
+  const { id } = useLocalSearchParams();
   const [nome, setNome] = useState('');
   const [cref, setCref] = useState('');
   const [especialidade, setEspecialidade] = useState('');
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
+  const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadInstrutores = async () => {
-      try {
-        const storedInstrutores = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-        if (storedInstrutores !== null) {
-          let instrutores = JSON.parse(storedInstrutores);
-          console.log("Loaded instrutores:", instrutores);
+    const loadInstrutor = async () => {
+      if (id) {
+        try {
+          const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
+          if (stored) {
+            const instrutores = JSON.parse(stored);
+            const instrutor = instrutores.find((a) => a.id === id);
+            if (instrutor) {
+              setNome(instrutor.nome);
+              setCref(instrutor.cref);
+              setEspecialidade(instrutor.especialidade);
+              setTelefone(instrutor.telefone);
+              setEmail(instrutor.email);
+              setIsEdit(true);
+            }
+          }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar instrutor para edição.');
         }
-      } catch (error) {
-        console.error("Error loading instrutores from AsyncStorage", error);
       }
     };
-
-    loadInstrutores();
-  }, []);
+    loadInstrutor();
+  }, [id]);
 
   const handleSubmit = async () => {
     if (nome && cref && especialidade && telefone && email) {
-      const newInstrutor = {
-        id: Date.now().toString(),
-        nome,
-        cref,
-        especialidade,
-        telefone,
-        email,
-      };
-
       try {
-        const existingInstrutoresJson = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-        let instrutores = existingInstrutoresJson ? JSON.parse(existingInstrutoresJson) : [];
-
-        instrutores.push(newInstrutor);
-
+        const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
+        let instrutores = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          instrutores = instrutores.map((a) =>
+            a.id === id
+              ? { ...a, nome, cref, especialidade, telefone, email }
+              : a
+          );
+        } else {
+          instrutores.push({
+            id: Date.now().toString(),
+            nome,
+            cref,
+            especialidade,
+            telefone,
+            email,
+          });
+        }
         await AsyncStorage.setItem(INSTRUTOR_STORAGE_KEY, JSON.stringify(instrutores));
-
-        Alert.alert('Instrutor cadastrado com sucesso!', `Dados do Instrutor\nNome: ${nome}\nCREF: ${cref}\nEspecialidade: ${especialidade}\nTelefone: ${telefone}\nEmail: ${email}`);
-
-        setNome('');
-        setCref('');
-        setEspecialidade('');
-        setTelefone('');
-        setEmail('');
+        router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Ocorreu um erro ao salvar o instrutor. Por favor, tente novamente.');
-        console.error("Error saving instrutor to AsyncStorage", error);
+        Alert.alert('Erro', 'Erro ao salvar instrutor.');
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -66,7 +73,9 @@ export default function InstrutorForm() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Formulário de Cadastro de Instrutor</Text>
+      <Text style={styles.title}>
+        {isEdit ? 'Editar Instrutor' : 'Formulário de Cadastro de Instrutor'}
+      </Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Nome Completo:</Text>
@@ -121,7 +130,9 @@ export default function InstrutorForm() {
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Salvar Instrutor</Text>
+        <Text style={styles.submitButtonText}>
+          {isEdit ? 'Salvar Alterações' : 'Salvar Instrutor'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
