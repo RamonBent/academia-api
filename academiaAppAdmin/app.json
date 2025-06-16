@@ -5,7 +5,6 @@
     "version": "1.0.0",
     "sdkVersion": "53.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -34,9 +33,6 @@
     "extra": {
       "router": {
         "unstable_src": "./app"
-      },
-      "eas": {
-        "projectId": "YOUR_ADMIN_APP_PROJECT_ID"
       }
     }
   }
