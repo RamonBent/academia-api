@@ -33,6 +33,7 @@ export default function AlunoForm() {
     if (nome && idade && email && telefone) {
       const newStudent = {
         id: Date.now().toString(),
+        nome: nome.trim(),
         idade: parseInt(idade),
         email,
         telefone,
