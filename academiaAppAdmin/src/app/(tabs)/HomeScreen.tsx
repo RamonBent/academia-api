@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import { BarChart, PieChart } from 'react-native-chart-kit'; 
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
-import { useFocusEffect } from '@react-navigation/native'; // Importe useFocusEffect
+import { useFocusEffect } from '@react-navigation/native';
 
 const screenWidth = Dimensions.get('window').width;
 const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
@@ -30,23 +30,18 @@ export default function HomeScreen(){
             if (storedExercicios !== null) {
               let parsedExercicios = JSON.parse(storedExercicios);
               setExercicios(parsedExercicios); 
-              console.log("Loaded exercícios for charts:", parsedExercicios);
+              console.log("Exercícios carregados para o charts:", parsedExercicios);
             } else {
               setExercicios([]);
             }
           } catch (error) {
-            console.error("Error loading exercises from AsyncStorage for charts", error);
+            console.error("Erro de carregamento de exercícios do AsyncStorage para o charts", error);
             setExercicios([]);
           }
         };
 
         loadExercicios();
-
-        // Opcional: Função de limpeza que é executada quando a tela perde o foco
-        return () => {
-          // console.log('Tela HomeScreen perdeu o foco, limpando...');
-        };
-      }, []) // Array de dependências vazio significa que o callback não mudará
+      }, [])
     );
 
     // Processar dados para os gráficos a partir de 'exercicios'
@@ -85,7 +80,7 @@ export default function HomeScreen(){
             </Text>
             
             <Text style={styles.chartSubtitle}>
-                Exercícios por Grupo Muscular (Barras)
+                Exercícios por Grupo Muscular (Gráfico de Barras)
             </Text>
             <BarChart
                 data={barChartData} 
@@ -99,7 +94,7 @@ export default function HomeScreen(){
             />
 
             <Text style={styles.chartSubtitle}>
-                Distribuição de Exercícios (Pizza)
+                Exercícios por Grupo Muscular (Gráfico de Pizza)
             </Text>
             {pieChartData.length > 0 ? (
                 <PieChart
@@ -110,7 +105,7 @@ export default function HomeScreen(){
                     accessor={"population"} 
                     backgroundColor={"transparent"} 
                     paddingLeft={"15"} 
-                    center={[screenWidth / 4 - 15, 50]} 
+                    center={[screenWidth / 50, 0]} 
                     absolute 
                     hasLegend={true} 
                     style={styles.chartStyle}
