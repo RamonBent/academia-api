@@ -17,6 +17,11 @@ public class AlunoController {
     @Autowired
     private AlunoService alunoService;
 
+    @GetMapping("/hello")
+    public String getHelloMessage() {
+        return "Hello from Spring Boot!";
+    }
+
     @PostMapping
     public ResponseEntity<AlunoResponseDTO> cadastrarAluno(@RequestBody AlunoRequestDTO dto) {
         AlunoResponseDTO alunoCriado = alunoService.criarAluno(dto);

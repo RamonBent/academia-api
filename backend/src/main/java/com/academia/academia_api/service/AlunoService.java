@@ -1,5 +1,11 @@
 package com.academia.academia_api.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.academia.academia_api.DTO.mapper.AlunoMapper;
 import com.academia.academia_api.DTO.request.AlunoRequestDTO;
 import com.academia.academia_api.DTO.response.AlunoResponseDTO;
@@ -7,14 +13,6 @@ import com.academia.academia_api.model.Aluno;
 import com.academia.academia_api.model.Instrutor;
 import com.academia.academia_api.repository.AlunoRepository;
 import com.academia.academia_api.repository.InstrutorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class AlunoService {
