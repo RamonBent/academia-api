@@ -17,6 +17,7 @@ public class AlunoController {
     @Autowired
     private AlunoService alunoService;
 
+
     @GetMapping("/hello")
     public String getHelloMessage() {
         return "Hello from Spring Boot!";
@@ -45,6 +46,7 @@ public class AlunoController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluirAluno(@PathVariable Long id) {
+        System.out.println("Recebida requisição para excluir aluno ID: " + id);
         alunoService.deletarAluno(id);
         return ResponseEntity.noContent().build();
     }

@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const INSTRUTOR_STORAGE_KEY = '@myApp:instrutores';
+const API_URL = 'http://192.168.1.108:8080/api/instrutores'; // ajuste o IP/porta conforme seu backend
 
 export default function InstrutorForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+
   const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
   const [cref, setCref] = useState('');
-  const [especialidade, setEspecialidade] = useState('');
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
   const [isEdit, setIsEdit] = useState(false);
@@ -19,19 +19,16 @@ export default function InstrutorForm() {
     const loadInstrutor = async () => {
       if (id) {
         try {
-          const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-          if (stored) {
-            const instrutores = JSON.parse(stored);
-            const instrutor = instrutores.find((a) => a.id === id);
-            if (instrutor) {
-              setNome(instrutor.nome);
-              setCref(instrutor.cref);
-              setEspecialidade(instrutor.especialidade);
-              setTelefone(instrutor.telefone);
-              setEmail(instrutor.email);
-              setIsEdit(true);
-            }
-          }
+          const response = await fetch(`${API_URL}/${id}`);
+          if (!response.ok) throw new Error('Instrutor não encontrado');
+
+          const instrutor = await response.json();
+          setNome(instrutor.nome || '');
+          setCpf(instrutor.cpf || '');
+          setCref(instrutor.numeroCREEF || '');
+          setTelefone(instrutor.telefone || '');
+          setEmail(instrutor.email || '');
+          setIsEdit(true);
         } catch (error) {
           Alert.alert('Erro', 'Erro ao carregar instrutor para edição.');
         }
@@ -41,30 +38,39 @@ export default function InstrutorForm() {
   }, [id]);
 
   const handleSubmit = async () => {
-    if (nome && cref && especialidade && telefone && email) {
+    if (nome && cpf && cref && telefone && email) {
       try {
-        const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-        let instrutores = stored ? JSON.parse(stored) : [];
-        if (isEdit) {
-          instrutores = instrutores.map((a) =>
-            a.id === id
-              ? { ...a, nome, cref, especialidade, telefone, email }
-              : a
-          );
+        const instrutorData = {
+          nome,
+          cpf,
+          telefone,
+          email,
+          numeroCREEF: cref,
+        };
+
+        let response;
+        if (isEdit && id) {
+          response = await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(instrutorData),
+          });
         } else {
-          instrutores.push({
-            id: Date.now().toString(),
-            nome,
-            cref,
-            especialidade,
-            telefone,
-            email,
+          response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(instrutorData),
           });
         }
-        await AsyncStorage.setItem(INSTRUTOR_STORAGE_KEY, JSON.stringify(instrutores));
+
+        if (!response.ok) {
+          throw new Error('Erro na requisição à API');
+        }
+
+        Alert.alert('Sucesso', isEdit ? 'Instrutor atualizado!' : 'Instrutor criado!');
         router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Erro ao salvar instrutor.');
+        Alert.alert('Erro', 'Erro ao salvar instrutor: ' + error.message);
       }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
@@ -72,7 +78,7 @@ export default function InstrutorForm() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>
         {isEdit ? 'Editar Instrutor' : 'Formulário de Cadastro de Instrutor'}
       </Text>
@@ -88,22 +94,24 @@ export default function InstrutorForm() {
       </View>
 
       <View style={styles.inputGroup}>
+        <Text style={styles.label}>CPF:</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Digite o CPF"
+          keyboardType="numeric"
+          value={cpf}
+          onChangeText={setCpf}
+          maxLength={14} // formato com pontos e traço: 000.000.000-00
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
         <Text style={styles.label}>Número CREF:</Text>
         <TextInput
           style={styles.input}
           placeholder="Digite o CREF"
           value={cref}
           onChangeText={setCref}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Especialidade:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Musculação, Pilates"
-          value={especialidade}
-          onChangeText={setEspecialidade}
         />
       </View>
 
@@ -126,6 +134,7 @@ export default function InstrutorForm() {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          autoCapitalize="none"
         />
       </View>
 

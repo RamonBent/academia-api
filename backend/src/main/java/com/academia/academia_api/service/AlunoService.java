@@ -23,9 +23,22 @@ public class AlunoService {
     @Autowired
     private InstrutorRepository instrutorRepository;
 
+//    public AlunoResponseDTO criarAluno(AlunoRequestDTO dto) {
+//        Instrutor instrutor = instrutorRepository.findById(dto.getInstrutorId())
+//                .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+//
+//        Aluno aluno = AlunoMapper.toEntity(dto, instrutor);
+//        Aluno salvo = alunoRepository.save(aluno);
+//        return AlunoMapper.toResponseDTO(salvo);
+//    }
+
     public AlunoResponseDTO criarAluno(AlunoRequestDTO dto) {
-        Instrutor instrutor = instrutorRepository.findById(dto.getInstrutorId())
-                .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+        Instrutor instrutor = null;
+
+        if (dto.getInstrutorId() != null) {
+            instrutor = instrutorRepository.findById(dto.getInstrutorId())
+                    .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+        }
 
         Aluno aluno = AlunoMapper.toEntity(dto, instrutor);
         Aluno salvo = alunoRepository.save(aluno);
@@ -45,12 +58,34 @@ public class AlunoService {
         return AlunoMapper.toResponseDTO(aluno);
     }
 
+//    public AlunoResponseDTO atualizarAluno(Long id, AlunoRequestDTO dto) {
+//        Aluno alunoExistente = alunoRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Aluno não encontrado"));
+//
+//        Instrutor instrutor = instrutorRepository.findById(dto.getInstrutorId())
+//                .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+//
+//        alunoExistente.setNome(dto.getNome());
+//        alunoExistente.setDataNascimento(dto.getDataNascimento());
+//        alunoExistente.setTelefone(dto.getTelefone());
+//        alunoExistente.setEmail(dto.getEmail());
+//        alunoExistente.setEndereco(dto.getEndereco());
+//        alunoExistente.setPlano(dto.getPlano());
+//        alunoExistente.setInstrutor(instrutor);
+//
+//        Aluno atualizado = alunoRepository.save(alunoExistente);
+//        return AlunoMapper.toResponseDTO(atualizado);
+//    }
+
     public AlunoResponseDTO atualizarAluno(Long id, AlunoRequestDTO dto) {
         Aluno alunoExistente = alunoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Aluno não encontrado"));
 
-        Instrutor instrutor = instrutorRepository.findById(dto.getInstrutorId())
-                .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+        Instrutor instrutor = null;
+        if (dto.getInstrutorId() != null) {
+            instrutor = instrutorRepository.findById(dto.getInstrutorId())
+                    .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+        }
 
         alunoExistente.setNome(dto.getNome());
         alunoExistente.setDataNascimento(dto.getDataNascimento());
@@ -63,6 +98,7 @@ public class AlunoService {
         Aluno atualizado = alunoRepository.save(alunoExistente);
         return AlunoMapper.toResponseDTO(atualizado);
     }
+
 
     public void deletarAluno(Long id) {
         if (!alunoRepository.existsById(id)) {

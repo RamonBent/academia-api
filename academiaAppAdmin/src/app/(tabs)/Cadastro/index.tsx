@@ -29,6 +29,10 @@ export default function CadastroScreen() {
         title="Cadastrar Treino"
         onPress={() => router.push('/Cadastro/TreinoForm')}
       />
+            <CustomButton
+        title="Cadastrar Treino"
+        onPress={() => router.push('/Cadastro/TreinoForm')}
+      />
     </View>
   );
 }

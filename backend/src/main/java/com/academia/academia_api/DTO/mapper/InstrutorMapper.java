@@ -15,6 +15,7 @@ public class InstrutorMapper {
         instrutor.setCpf(dto.getCpf());
         instrutor.setTelefone(dto.getTelefone());
         instrutor.setEmail(dto.getEmail());
+        instrutor.setNumeroCREEF(dto.getNumeroCREEF());
         return instrutor;
     }
 

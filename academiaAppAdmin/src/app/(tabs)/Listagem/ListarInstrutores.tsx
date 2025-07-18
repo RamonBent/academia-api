@@ -1,137 +1,231 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
+} from 'react-native';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 
-const INSTRUTOR_STORAGE_KEY = '@myApp:instrutores';
+const API_BASE_URL = "http://192.168.1.108:8080/api/instrutores";
 
 export default function ListarInstrutores() {
-    const [instrutores, setInstrutores] = useState([]);
-    const router = useRouter();
+  const [instrutores, setInstrutores] = useState([]);
+  const [filtro, setFiltro] = useState('');
+  const [instrutoresFiltrados, setInstrutoresFiltrados] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const router = useRouter();
 
-    useEffect(() => {
-        const loadInstrutores = async () => {
-            try {
-                const storedInstrutores = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-                if (storedInstrutores !== null) {
-                    setInstrutores(JSON.parse(storedInstrutores));
-                }
-            } catch (error) {
-                console.error("Error loading instrutores from AsyncStorage", error);
-            }
-        };
+  useEffect(() => {
+    fetchInstrutores();
+  }, []);
 
-        loadInstrutores();
-    }, []);
+  useEffect(() => {
+    if (filtro.trim() === '') {
+      setInstrutoresFiltrados(instrutores);
+    } else {
+      const filtroMinusculo = filtro.toLowerCase();
+      setInstrutoresFiltrados(
+        instrutores.filter(instrutor => 
+          instrutor.nome && instrutor.nome.toLowerCase().includes(filtroMinusculo)
+        )
+      );
+    }
+  }, [filtro, instrutores]);
 
-    const handleDelete = async (id) => {
-        const filtered = instrutores.filter((instrutor) => instrutor.id !== id);
-        setInstrutores(filtered);
-        await AsyncStorage.setItem(INSTRUTOR_STORAGE_KEY, JSON.stringify(filtered));
-    };
+  const fetchInstrutores = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(API_BASE_URL);
+      setInstrutores(response.data);
+      setInstrutoresFiltrados(response.data);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar a lista de instrutores.");
+      console.error("Erro ao carregar instrutores:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleEdit = (id) => {
-        router.push({ pathname: '/Cadastro/InstrutorForm', params: { id } });
-    };
+  const deleteInstrutor = async (id) => {
+    setDeletingId(id);
+    try {
+      await axios.delete(`${API_BASE_URL}/${id}`);
+      
+      // Atualização otimista - remove o instrutor da lista antes de recarregar
+      setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
+      
+      Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
+      
+    } catch (error) {
+      console.error("Erro ao excluir instrutor:", error);
+      Alert.alert("Erro", "Não foi possível excluir o instrutor.");
+      // Recarrega a lista em caso de erro para garantir consistência
+      fetchInstrutores();
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
+  const handleEdit = async (id) => {
+    setEditingId(id);
+    try {
+      router.push({ 
+        pathname: '/Cadastro/InstrutorForm', 
+        params: { id: id.toString() }
+      });
+    } catch (error) {
+      console.error("Erro ao navegar para edição:", error);
+      Alert.alert("Erro", "Não foi possível abrir a edição");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  if (loading && instrutores.length === 0) {
     return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.title}>Lista de Instrutores</Text>
-            {instrutores.length === 0 ? (
-                <Text style={styles.emptyText}>Nenhum instrutor cadastrado.</Text>
-            ) : (
-                instrutores.map((instrutor, index) => (
-                    <View key={instrutor.id || index} style={styles.cardRow}>
-                        <View style={styles.card}>
-                            <Text style={styles.name}>{instrutor.nome || 'Nome não informado'}</Text>
-                            <Text>CREF: {instrutor.cref}</Text>
-                            <Text>Especialidade: {instrutor.especialidade}</Text>
-                            <Text>Telefone: {instrutor.telefone}</Text>
-                            <Text>Email: {instrutor.email}</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.editButton}
-                            onPress={() => handleEdit(instrutor.id)}
-                        >
-                            <Text style={styles.editButtonText}>Editar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.deleteButton}
-                            onPress={() => handleDelete(instrutor.id)}
-                        >
-                            <Text style={styles.deleteButtonText}>Excluir</Text>
-                        </TouchableOpacity>
-                    </View>
-                ))
-            )}
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                <Text style={styles.backButtonText}>Voltar para Listagem</Text>
-            </TouchableOpacity>
-        </ScrollView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text>Carregando instrutores...</Text>
+      </View>
     );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Lista de Instrutores</Text>
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Pesquisar instrutor pelo nome"
+        value={filtro}
+        onChangeText={setFiltro}
+        autoCapitalize="none"
+      />
+
+      {instrutoresFiltrados.length === 0 ? (
+        <Text style={styles.emptyText}>
+          {filtro ? 'Nenhum instrutor encontrado com este nome.' : 'Nenhum instrutor cadastrado.'}
+        </Text>
+      ) : (
+        instrutoresFiltrados.map((instrutor) => (
+          <View key={instrutor.id} style={styles.cardRow}>
+            <View style={styles.card}>
+              <Text style={styles.name}>{instrutor.nome || 'Nome não informado'}</Text>
+              <Text>CREF: {instrutor.cref || '-'}</Text>
+              <Text>Especialidade: {instrutor.especialidade || '-'}</Text>
+              <Text>Telefone: {instrutor.telefone || '-'}</Text>
+              <Text>Email: {instrutor.email || '-'}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.editButton, editingId === instrutor.id && styles.disabledButton]}
+              onPress={() => handleEdit(instrutor.id)}
+              disabled={editingId === instrutor.id}
+            >
+              {editingId === instrutor.id ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.editButtonText}>Editar</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.deleteButton, deletingId === instrutor.id && styles.disabledButton]}
+              onPress={() => deleteInstrutor(instrutor.id)}
+              disabled={deletingId === instrutor.id}
+            >
+              {deletingId === instrutor.id ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Excluir</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
+
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>Voltar</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#f8f8f8',
-    },
-    title: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 30,
-        textAlign: 'center',
-        color: '#333',
-    },
-    cardRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    card: {
-        backgroundColor: '#e0e0e0',
-        padding: 15,
-        borderRadius: 8,
-        flex: 1,
-    },
-    name: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    editButton: {
-        backgroundColor: '#28a745',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        marginLeft: 10,
-        alignSelf: 'stretch',
-        justifyContent: 'center',
-    },
-    editButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    deleteButton: {
-        backgroundColor: '#dc3545',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-        marginLeft: 10,
-        alignSelf: 'stretch',
-        justifyContent: 'center',
-    },
-    deleteButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: '#888',
-        marginTop: 30,
-        fontSize: 16,
-    },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f8f8f8',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  searchInput: {
+    backgroundColor: '#e0e0e0',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 15,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  card: {
+    backgroundColor: '#e0e0e0',
+    padding: 15,
+    borderRadius: 8,
+    flex: 1,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  editButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginLeft: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  editButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginLeft: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#a0a0a0',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#888',
+    marginTop: 30,
+    fontSize: 16,
+  },
   backButton: {
     backgroundColor: '#6c757d',
     paddingVertical: 10,

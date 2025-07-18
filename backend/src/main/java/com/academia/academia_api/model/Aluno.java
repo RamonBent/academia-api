@@ -32,7 +32,7 @@ public class Aluno {
     private String plano;
 
     @ManyToOne
-    @JoinColumn(name = "instrutor_id")
+    @JoinColumn(name = "instrutor_id", nullable = true)
     private Instrutor instrutor;
 
     @OneToMany(mappedBy = "aluno")

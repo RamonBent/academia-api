@@ -44,6 +44,7 @@ public class InstrutorService {
         instrutor.setCpf(dto.getCpf());
         instrutor.setTelefone(dto.getTelefone());
         instrutor.setEmail(dto.getEmail());
+        instrutor.setNumeroCREEF(dto.getNumeroCREEF());
 
         Instrutor atualizado = instrutorRepository.save(instrutor);
         return InstrutorMapper.toResponseDTO(atualizado);

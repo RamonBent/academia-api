@@ -1,73 +1,173 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
+} from 'react-native';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 
-const STUDENTS_STORAGE_KEY = '@myApp:students';
+const API_BASE_URL = "http://192.168.1.108:8080/api/alunos";
 
 export default function ListarAlunos() {
   const [alunos, setAlunos] = useState([]);
+  const [filtro, setFiltro] = useState('');
+  const [alunosFiltrados, setAlunosFiltrados] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
-    const loadAlunos = async () => {
-      try {
-        const storedAlunos = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
-        if (storedAlunos !== null) {
-          setAlunos(JSON.parse(storedAlunos));
-        }
-      } catch (error) {
-        console.error("Error loading alunos from AsyncStorage", error);
-      }
-    };
-
-    loadAlunos();
+    fetchAlunos();
   }, []);
 
-  const handleDelete = async (id) => {
-    const filtered = alunos.filter((aluno) => aluno.id !== id);
-    setAlunos(filtered);
-    await AsyncStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(filtered));
+  useEffect(() => {
+    if (filtro.trim() === '') {
+      setAlunosFiltrados(alunos);
+    } else {
+      const filtroMinusculo = filtro.toLowerCase();
+      setAlunosFiltrados(
+        alunos.filter(aluno => 
+          aluno.nome && aluno.nome.toLowerCase().includes(filtroMinusculo)
+        )
+      );
+    }
+  }, [filtro, alunos]);
+
+  const fetchAlunos = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(API_BASE_URL);
+      setAlunos(response.data);
+      setAlunosFiltrados(response.data);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar a lista de alunos.");
+      console.error("Erro ao carregar alunos:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEdit = (id) => {
-    router.push({ pathname: '/Cadastro/AlunoForm', params: { id } });
+  const deleteAluno = async (id) => {
+    setDeletingId(id);
+    try {
+      await axios.delete(`${API_BASE_URL}/${id}`);
+      
+      // Atualização otimista - remove o aluno da lista antes de recarregar
+      setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
+      
+      Alert.alert("Sucesso", "Aluno excluído com sucesso!");
+      
+    } catch (error) {
+      console.error("Erro ao excluir aluno:", error);
+      Alert.alert("Erro", "Não foi possível excluir o aluno.");
+      // Recarrega a lista em caso de erro para garantir consistência
+      fetchAlunos();
+    } finally {
+      setDeletingId(null);
+    }
   };
+
+  const handleEdit = async (id) => {
+    setEditingId(id);
+    try {
+      router.push({ 
+        pathname: '/Cadastro/AlunoForm', 
+        params: { id: id.toString() }
+      });
+    } catch (error) {
+      console.error("Erro ao navegar para edição:", error);
+      Alert.alert("Erro", "Não foi possível abrir a edição");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  if (loading && alunos.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text>Carregando alunos...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Lista de Alunos</Text>
-      {alunos.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum aluno cadastrado.</Text>
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Pesquisar aluno pelo nome"
+        value={filtro}
+        onChangeText={setFiltro}
+        autoCapitalize="none"
+      />
+
+      {alunosFiltrados.length === 0 ? (
+        <Text style={styles.emptyText}>
+          {filtro ? 'Nenhum aluno encontrado com este nome.' : 'Nenhum aluno cadastrado.'}
+        </Text>
       ) : (
-        alunos.map((aluno, index) => (
-          <View key={aluno.id || index} style={styles.cardRow}>
+        alunosFiltrados.map((aluno) => (
+          <View key={aluno.id} style={styles.cardRow}>
             <View style={styles.card}>
               <Text style={styles.name}>{aluno.nome || 'Nome não informado'}</Text>
-              <Text>Idade: {aluno.idade}</Text>
-              <Text>Email: {aluno.email}</Text>
-              <Text>Telefone: {aluno.telefone}</Text>
+              {aluno.dataNascimento ? (
+                <Text>Idade: {calcularIdade(aluno.dataNascimento)}</Text>
+              ) : (
+                <Text>Idade: Não informada</Text>
+              )}
+              <Text>Email: {aluno.email || '-'}</Text>
+              <Text>Telefone: {aluno.telefone || '-'}</Text>
             </View>
             <TouchableOpacity
-              style={styles.editButton}
+              style={[styles.editButton, editingId === aluno.id && styles.disabledButton]}
               onPress={() => handleEdit(aluno.id)}
+              disabled={editingId === aluno.id}
             >
-              <Text style={styles.editButtonText}>Editar</Text>
+              {editingId === aluno.id ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.editButtonText}>Editar</Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDelete(aluno.id)}
+              style={[styles.deleteButton, deletingId === aluno.id && styles.disabledButton]}
+              onPress={() => deleteAluno(aluno.id)}
+              disabled={deletingId === aluno.id}
             >
-              <Text style={styles.deleteButtonText}>Excluir</Text>
+              {deletingId === aluno.id ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Excluir</Text>
+              )}
             </TouchableOpacity>
           </View>
         ))
       )}
+
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Listagem</Text>
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
+}
+
+function calcularIdade(dataNascimentoISO) {
+  if (!dataNascimentoISO) return 'N/A';
+  
+  const hoje = new Date();
+  const nascimento = new Date(dataNascimentoISO);
+  
+  if (isNaN(nascimento.getTime())) return 'Data inválida';
+  
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const mes = hoje.getMonth() - nascimento.getMonth();
+
+  if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade--;
+  }
+  return idade;
 }
 
 const styles = StyleSheet.create({
@@ -76,12 +176,24 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f8f8f8',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: 15,
     textAlign: 'center',
     color: '#333',
+  },
+  searchInput: {
+    backgroundColor: '#e0e0e0',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 15,
   },
   cardRow: {
     flexDirection: 'row',
@@ -120,6 +232,9 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     alignSelf: 'stretch',
     justifyContent: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#a0a0a0',
   },
   deleteButtonText: {
     color: 'white',

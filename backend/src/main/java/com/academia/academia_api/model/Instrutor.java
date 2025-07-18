@@ -28,6 +28,9 @@ public class Instrutor {
     @Column(unique = true)
     private String email;
 
+    @Column(name = "numero_creef", unique = true, nullable = false)
+    private String numeroCREEF;
+
     @OneToMany(mappedBy = "instrutor")
     private List<Aluno> alunos;
 }
