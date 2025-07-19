@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const TREINO_STORAGE_KEY = '@myApp:treinos';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function TreinoForm() {
   const router = useRouter();
@@ -17,54 +20,38 @@ export default function TreinoForm() {
   const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadTreino = async () => {
-      if (id) {
-        try {
-          const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-          if (stored) {
-            const treinos = JSON.parse(stored);
-            const treino = treinos.find((a) => a.id === id);
-            if (treino) {
-              setAlunoId(treino.alunoId);
-              setInstrutorId(treino.instrutorId);
-              setNomeTreino(treino.nomeTreino);
-              setDataInicio(treino.dataInicio);
-              setDataFim(treino.dataFim);
-              setObjetivo(treino.objetivo);
-              setIsEdit(true);
-            }
-          }
-        } catch (error) {
-          Alert.alert('Erro', 'Erro ao carregar treino para edição.');
-        }
-      }
-    };
-    loadTreino();
+    if (id) {
+      axios.get(`${API_BASE_URL}/api/treinos/${id}`)
+        .then(response => {
+          const treino = response.data;
+          setAlunoId(treino.alunoId?.toString() || '');
+          setInstrutorId(treino.instrutorId?.toString() || '');
+          setNomeTreino(treino.nomeTreino || '');
+          setDataInicio(treino.dataInicio || '');
+          setDataFim(treino.dataFim || '');
+          setObjetivo(treino.objetivo || '');
+          setIsEdit(true);
+        })
+        .catch(() => Alert.alert('Erro', 'Erro ao carregar treino para edição.'));
+    }
   }, [id]);
 
   const handleSubmit = async () => {
     if (alunoId && instrutorId && nomeTreino && dataInicio && dataFim && objetivo) {
       try {
-        const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-        let treinos = stored ? JSON.parse(stored) : [];
+        const treinoRequest = {
+          alunoId,
+          instrutorId,
+          nomeTreino,
+          dataInicio,
+          dataFim,
+          objetivo,
+        };
         if (isEdit) {
-          treinos = treinos.map((a) =>
-            a.id === id
-              ? { ...a, alunoId, instrutorId, nomeTreino, dataInicio, dataFim, objetivo }
-              : a
-          );
+          await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
         } else {
-          treinos.push({
-            id: Date.now().toString(),
-            alunoId,
-            instrutorId,
-            nomeTreino,
-            dataInicio,
-            dataFim,
-            objetivo,
-          });
+          await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
         }
-        await AsyncStorage.setItem(TREINO_STORAGE_KEY, JSON.stringify(treinos));
         router.back();
       } catch (error) {
         Alert.alert('Erro', 'Erro ao salvar treino.');

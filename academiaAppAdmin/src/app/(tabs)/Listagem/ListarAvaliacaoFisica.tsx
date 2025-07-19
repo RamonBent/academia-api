@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-const AVALIACAO_STORAGE_KEY = '@myApp:avaliacoesFisicas';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarAvaliacaoFisica() {
   const [avaliacoesFisica, setavaliacoesFisica] = useState([]);
@@ -12,7 +14,7 @@ export default function ListarAvaliacaoFisica() {
   useEffect(() => {
     const loadAvaliacoesFisica = async () => {
       try {
-        const storedAvaliacoesFisica = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
+        const storedAvaliacoesFisica = await AsyncStorage.getItem(`${API_BASE_URL}/api/avaliacoes`);
         if (storedAvaliacoesFisica !== null) {
           setavaliacoesFisica(JSON.parse(storedAvaliacoesFisica));
         }
@@ -27,7 +29,7 @@ export default function ListarAvaliacaoFisica() {
   const handleDelete = async (id) => {
     const filtered = avaliacoesFisica.filter((avaliacao) => avaliacao.id !== id);
     setavaliacoesFisica(filtered);
-    await AsyncStorage.setItem(AVALIACAO_STORAGE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(`${API_BASE_URL}/api/avaliacoes`, JSON.stringify(filtered));
   };
 
   const handleEdit = (id) => {

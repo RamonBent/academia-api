@@ -7,8 +7,9 @@ import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 
-const API_BASE_URL = "http://192.168.1.108:8080/api/alunos"; 
-const API_INSTRUTORES_URL = "http://192.168.1.108:8080/api/instrutores";
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function AlunoForm() {
   const router = useRouter();
@@ -38,14 +39,14 @@ export default function AlunoForm() {
   const years = Array.from({ length: 100 }, (_, i) => (currentYear - i).toString());
 
   useEffect(() => {
-    axios.get(API_INSTRUTORES_URL)
+    axios.get(`${API_BASE_URL}/api/instrutores`)
       .then(response => setInstrutores(response.data))
       .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de instrutores."));
   }, []);
 
   useEffect(() => {
     if (id) {
-      axios.get(`${API_BASE_URL}/${id}`)
+      axios.get(`${API_BASE_URL}/api/alunos/${id}`)
         .then(response => {
           const aluno = response.data;
           setNome(aluno.nome);
@@ -77,7 +78,7 @@ export default function AlunoForm() {
 
   useEffect(() => {
     if (nome.trim().length > 0) {
-      axios.get(`${API_BASE_URL}?nome=${nome}`)
+      axios.get(`${API_BASE_URL}/api/alunos?nome=${nome}`)
         .then(response => {
           const nomes = response.data
             .map((aluno: any) => aluno.nome)

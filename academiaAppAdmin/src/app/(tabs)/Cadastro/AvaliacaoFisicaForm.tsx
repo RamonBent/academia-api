@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AVALIACAO_STORAGE_KEY = '@myApp:avaliacoesFisicas';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function AvaliacaoFisicaForm() {
   const router = useRouter();
@@ -17,64 +20,38 @@ export default function AvaliacaoFisicaForm() {
   const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadAvaliacao = async () => {
-      if (id) {
-        try {
-          const stored = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
-          if (stored) {
-            const avaliacoes = JSON.parse(stored);
-            const avaliacao = avaliacoes.find((a) => a.id === id);
-            if (avaliacao) {
-              setAlunoId(avaliacao.alunoId);
-              setDataAvaliacao(avaliacao.dataAvaliacao);
-              setPeso(avaliacao.peso.toString());
-              setAltura(avaliacao.altura.toString());
-              setImc(avaliacao.imc.toString());
-              setPercentualGordura(avaliacao.percentualGordura.toString());
-              setIsEdit(true);
-            }
-          }
-        } catch (error) {
-          Alert.alert('Erro', 'Erro ao carregar avaliação para edição.');
-        }
-      }
-    };
-    loadAvaliacao();
+    if (id) {
+      axios.get(`${API_BASE_URL}/api/avaliacoes/${id}`)
+        .then(response => {
+          const avaliacao = response.data;
+          setAlunoId(avaliacao.alunoId?.toString() || '');
+          setDataAvaliacao(avaliacao.dataAvaliacao || '');
+          setPeso(avaliacao.peso?.toString() || '');
+          setAltura(avaliacao.altura?.toString() || '');
+          setImc(avaliacao.imc?.toString() || '');
+          setPercentualGordura(avaliacao.percentualGordura?.toString() || '');
+          setIsEdit(true);
+        })
+        .catch(() => Alert.alert('Erro', 'Erro ao carregar avaliação para edição.'));
+    }
   }, [id]);
 
   const handleSubmit = async () => {
     if (alunoId && dataAvaliacao && peso && altura && imc && percentualGordura) {
       try {
-        const stored = await AsyncStorage.getItem(AVALIACAO_STORAGE_KEY);
-        let avaliacoes = stored ? JSON.parse(stored) : [];
+        const avaliacaoRequest = {
+          alunoId: alunoId,
+          dataAvaliacao: dataAvaliacao,
+          peso: parseFloat(peso),
+          altura: parseFloat(altura),
+          imc: parseFloat(imc),
+          percentualGordura: parseFloat(percentualGordura),
+        };
         if (isEdit) {
-          // Edit mode: update existing
-          avaliacoes = avaliacoes.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  alunoId,
-                  dataAvaliacao,
-                  peso: parseFloat(peso),
-                  altura: parseFloat(altura),
-                  imc: parseFloat(imc),
-                  percentualGordura: parseFloat(percentualGordura),
-                }
-              : a
-          );
+          await axios.put(`${API_BASE_URL}/api/avaliacoes/${id}`, avaliacaoRequest);
         } else {
-          // Create mode: add new
-          avaliacoes.push({
-            id: Date.now().toString(),
-            alunoId,
-            dataAvaliacao,
-            peso: parseFloat(peso),
-            altura: parseFloat(altura),
-            imc: parseFloat(imc),
-            percentualGordura: parseFloat(percentualGordura),
-          });
+          await axios.post(`${API_BASE_URL}/api/avaliacoes`, avaliacaoRequest);
         }
-        await AsyncStorage.setItem(AVALIACAO_STORAGE_KEY, JSON.stringify(avaliacoes));
         router.back();
       } catch (error) {
         Alert.alert('Erro', 'Erro ao salvar avaliação física.');

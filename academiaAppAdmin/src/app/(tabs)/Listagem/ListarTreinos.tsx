@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-const TREINO_STORAGE_KEY = '@myApp:treinos';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarTreinos() {
   const [treinos, setTreinos] = useState([]);
@@ -12,7 +14,7 @@ export default function ListarTreinos() {
   useEffect(() => {
     const loadTreinos = async () => {
       try {
-        const storedTreinos = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
+        const storedTreinos = await AsyncStorage.getItem(`${API_BASE_URL}/api/treinos`);
         if (storedTreinos !== null) {
           setTreinos(JSON.parse(storedTreinos));
         }
@@ -27,7 +29,7 @@ export default function ListarTreinos() {
   const handleDelete = async (id) => {
     const filtered = treinos.filter((treino) => treino.id !== id);
     setTreinos(filtered);
-    await AsyncStorage.setItem(TREINO_STORAGE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(`${API_BASE_URL}/api/treinos`, JSON.stringify(filtered));
   };
 
   const handleEdit = (id) => {

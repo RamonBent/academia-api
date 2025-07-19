@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ExercicioForm() {
   const router = useRouter();
@@ -14,48 +17,32 @@ export default function ExercicioForm() {
   const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
-    const loadExercicio = async () => {
-      if (id) {
-        try {
-          const stored = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
-          if (stored) {
-            const exercicios = JSON.parse(stored);
-            const exercicio = exercicios.find((a) => a.id === id);
-            if (exercicio) {
-              setNomeExercicio(exercicio.nomeExercicio);
-              setGrupoMuscular(exercicio.grupoMuscular);
-              setDescricao(exercicio.descricao);
-              setIsEdit(true);
-            }
-          }
-        } catch (error) {
-          Alert.alert('Erro', 'Erro ao carregar exercício para edição.');
-        }
-      }
-    };
-    loadExercicio();
+    if (id) {
+      axios.get(`${API_BASE_URL}/api/exercicios/${id}`)
+        .then(response => {
+          const exercicio = response.data;
+          setNomeExercicio(exercicio.nomeExercicio || '');
+          setGrupoMuscular(exercicio.grupoMuscular || '');
+          setDescricao(exercicio.descricao || '');
+          setIsEdit(true);
+        })
+        .catch(() => Alert.alert('Erro', 'Erro ao carregar exercício para edição.'));
+    }
   }, [id]);
 
   const handleSubmit = async () => {
     if (nomeExercicio && grupoMuscular && descricao) {
       try {
-        const stored = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
-        let exercicios = stored ? JSON.parse(stored) : [];
+        const exercicioRequest = {
+          nomeExercicio,
+          grupoMuscular,
+          descricao,
+        };
         if (isEdit) {
-          exercicios = exercicios.map((a) =>
-            a.id === id
-              ? { ...a, nomeExercicio, grupoMuscular, descricao }
-              : a
-          );
+          await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
         } else {
-          exercicios.push({
-            id: Date.now().toString(),
-            nomeExercicio,
-            grupoMuscular,
-            descricao,
-          });
+          await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
         }
-        await AsyncStorage.setItem(EXERCICIO_STORAGE_KEY, JSON.stringify(exercicios));
         router.back();
       } catch (error) {
         Alert.alert('Erro', 'Erro ao salvar exercício.');

@@ -9,8 +9,8 @@ import axios from 'axios';
 const screenWidth = Dimensions.get('window').width;
 const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
 // IMPORTANT: Ensure this IP address is your development machine's actual local IP.
-// And the port (8081) matches your Spring Boot application's port.
-const API_BASE_URL = "http://192.168.1.108:8080/api/alunos"; 
+// And the port (8080) matches your Spring Boot application's port.
+const API_BASE_URL = "http://192.168.1.76:8080/api/alunos"; 
 
 const chartConfig = {
   backgroundGradientFrom: '#fff', 

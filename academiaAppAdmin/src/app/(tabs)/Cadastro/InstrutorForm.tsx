@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-const API_URL = 'http://192.168.1.108:8080/api/instrutores'; // ajuste o IP/porta conforme seu backend
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function InstrutorForm() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function InstrutorForm() {
     const loadInstrutor = async () => {
       if (id) {
         try {
-          const response = await fetch(`${API_URL}/${id}`);
+          const response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`);
           if (!response.ok) throw new Error('Instrutor não encontrado');
 
           const instrutor = await response.json();
@@ -50,13 +52,13 @@ export default function InstrutorForm() {
 
         let response;
         if (isEdit && id) {
-          response = await fetch(`${API_URL}/${id}`, {
+          response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(instrutorData),
           });
         } else {
-          response = await fetch(API_URL, {
+          response = await fetch(`${API_BASE_URL}/api/instrutores`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(instrutorData),

@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);
@@ -12,7 +14,7 @@ export default function ListarExercicios() {
   useEffect(() => {
     const loadExercicios = async () => {
       try {
-        const storedExercicios = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
+        const storedExercicios = await AsyncStorage.getItem(`${API_BASE_URL}/api/exercicios`);
         if (storedExercicios !== null) {
           setExercicios(JSON.parse(storedExercicios));
         }
@@ -27,7 +29,7 @@ export default function ListarExercicios() {
   const handleDelete = async (id) => {
     const filtered = exercicios.filter((exercicio) => exercicio.id !== id);
     setExercicios(filtered);
-    await AsyncStorage.setItem(EXERCICIO_STORAGE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(`${API_BASE_URL}/api/exercicios`, JSON.stringify(filtered));
   };
 
   const handleEdit = (id) => {

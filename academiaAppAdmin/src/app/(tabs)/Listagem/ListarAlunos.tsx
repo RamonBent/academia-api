@@ -5,7 +5,9 @@ import {
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 
-const API_BASE_URL = "http://192.168.1.108:8080/api/alunos";
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarAlunos() {
   const [alunos, setAlunos] = useState([]);
@@ -36,7 +38,7 @@ export default function ListarAlunos() {
   const fetchAlunos = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(API_BASE_URL);
+      const response = await axios.get(`${API_BASE_URL}/api/alunos`);
       setAlunos(response.data);
       setAlunosFiltrados(response.data);
     } catch (error) {

@@ -5,7 +5,9 @@ import {
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 
-const API_BASE_URL = "http://192.168.1.108:8080/api/instrutores";
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarInstrutores() {
   const [instrutores, setInstrutores] = useState([]);
@@ -36,7 +38,7 @@ export default function ListarInstrutores() {
   const fetchInstrutores = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(API_BASE_URL);
+      const response = await axios.get(`${API_BASE_URL}/api/instrutores`);
       setInstrutores(response.data);
       setInstrutoresFiltrados(response.data);
     } catch (error) {
@@ -50,7 +52,7 @@ export default function ListarInstrutores() {
   const deleteInstrutor = async (id) => {
     setDeletingId(id);
     try {
-      await axios.delete(`${API_BASE_URL}/${id}`);
+      await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
       
       // Atualização otimista - remove o instrutor da lista antes de recarregar
       setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
