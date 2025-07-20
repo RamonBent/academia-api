@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.academia.academia_api.AcademiaApiApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.583 s -- in com.academia.academia_api.AcademiaApiApplicationTests

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class AlunoRequestDTO {
@@ -15,4 +16,6 @@ public class AlunoRequestDTO {
         private String endereco;
         private String plano;
         private Long instrutorId;
+        private List<Long> treinoIds;
+        private List<AvaliacaoFisicaRequestDTO> avaliacoes;
 }

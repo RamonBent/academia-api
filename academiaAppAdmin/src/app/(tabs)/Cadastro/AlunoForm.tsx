@@ -31,6 +31,9 @@ export default function AlunoForm() {
   const [instrutorId, setInstrutorId] = useState<string | null>(null);
 
   const [instrutores, setInstrutores] = useState<{ id: number; nome: string }[]>([]);
+  const [treinos, setTreinos] = useState<{ id: number; nome: string }[]>([]);
+  const [treinoIds, setTreinoIds] = useState<number[]>([]);
+
   const [isEdit, setIsEdit] = useState(false);
 
   const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
@@ -38,12 +41,21 @@ export default function AlunoForm() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => (currentYear - i).toString());
 
+  // Carrega instrutores
   useEffect(() => {
     axios.get(`${API_BASE_URL}/api/instrutores`)
       .then(response => setInstrutores(response.data))
       .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de instrutores."));
   }, []);
 
+  // Carrega treinos
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/api/treinos`)
+      .then(response => setTreinos(response.data))
+      .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de treinos."));
+  }, []);
+
+  // Se for editar, carrega dados do aluno
   useEffect(() => {
     if (id) {
       axios.get(`${API_BASE_URL}/api/alunos/${id}`)
@@ -62,12 +74,29 @@ export default function AlunoForm() {
           setEndereco(aluno.endereco || '');
           setPlano(aluno.plano || '');
           setInstrutorId(aluno.instrutorId ? aluno.instrutorId.toString() : null);
+
+          // Preenche treinos selecionados no estado
+          if (aluno.treinosIds && Array.isArray(aluno.treinosIds)) {
+            setTreinoIds(aluno.treinosIds);
+          } else {
+            setTreinoIds([]);
+          }
+
           setIsEdit(true);
         })
         .catch(() => Alert.alert("Erro", "Não foi possível carregar os dados do aluno."));
     }
   }, [id]);
 
+  // Formata data para dd/MM/yyyy
+  function formatDate(date: Date): string {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  // Atualiza dataNascimento com base nos selects
   useEffect(() => {
     if (selectedDay && selectedMonth && selectedYear) {
       const day = selectedDay.padStart(2, '0');
@@ -76,6 +105,7 @@ export default function AlunoForm() {
     }
   }, [selectedDay, selectedMonth, selectedYear]);
 
+  // Sugestões nome
   useEffect(() => {
     if (nome.trim().length > 0) {
       axios.get(`${API_BASE_URL}/api/alunos?nome=${nome}`)
@@ -102,14 +132,14 @@ export default function AlunoForm() {
     Keyboard.dismiss();
   };
 
-  function formatDate(date: Date): string {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
-  }
+  // Função para selecionar/deselecionar treino
+  const toggleTreinoSelection = (id: number) => {
+    setTreinoIds((prev) =>
+      prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+    );
+  };
 
-  // Note que agora o backend espera data no formato dd/MM/yyyy, então enviaremos assim
+  // Enviar dados para backend
   const handleSubmit = async () => {
     if (!nome || !selectedDay || !selectedMonth || !selectedYear || !email || !telefone) {
       Alert.alert("Erro", "Preencha os campos obrigatórios: Nome, Data de Nascimento, Email e Telefone.");
@@ -118,24 +148,25 @@ export default function AlunoForm() {
 
     const alunoRequest = {
       nome: nome.trim(),
-      dataNascimento: dataNascimento,  // enviar no formato dd/MM/yyyy
+      dataNascimento: dataNascimento,  // dd/MM/yyyy
       email: email.trim(),
       telefone: telefone.trim(),
       endereco: endereco.trim() || null,
       plano: plano.trim() || null,
       instrutorId: instrutorId ? parseInt(instrutorId) : null,
+      treinoIds: treinoIds,
     };
 
     try {
       if (isEdit) {
-        await axios.put(`${API_BASE_URL}/${id}`, alunoRequest);
+        await axios.put(`${API_BASE_URL}/api/alunos/${id}`, alunoRequest);
         Alert.alert("Sucesso", "Aluno atualizado com sucesso!");
       } else {
-        await axios.post(API_BASE_URL, alunoRequest);
+        await axios.post(`${API_BASE_URL}/api/alunos`, alunoRequest);
         Alert.alert("Sucesso", "Aluno cadastrado com sucesso!");
       }
       router.back();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar aluno:", error.response?.data || error.message);
       Alert.alert("Erro", "Não foi possível salvar o aluno.");
     }
@@ -148,6 +179,7 @@ export default function AlunoForm() {
           {isEdit ? 'Editar Aluno' : 'Cadastrar Novo Aluno'}
         </Text>
 
+        {/* Nome */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nome *</Text>
           <TextInput
@@ -173,6 +205,7 @@ export default function AlunoForm() {
           )}
         </View>
 
+        {/* Data Nascimento */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Data de Nascimento *</Text>
           <View style={styles.datePickerContainer}>
@@ -226,6 +259,7 @@ export default function AlunoForm() {
           </Text>
         </View>
 
+        {/* Email */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Email *</Text>
           <TextInput
@@ -238,6 +272,7 @@ export default function AlunoForm() {
           />
         </View>
 
+        {/* Telefone */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Telefone *</Text>
           <TextInput
@@ -249,6 +284,7 @@ export default function AlunoForm() {
           />
         </View>
 
+        {/* Endereço */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Endereço</Text>
           <TextInput
@@ -259,6 +295,7 @@ export default function AlunoForm() {
           />
         </View>
 
+        {/* Plano */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Plano</Text>
           <TextInput
@@ -269,6 +306,7 @@ export default function AlunoForm() {
           />
         </View>
 
+        {/* Instrutor */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Instrutor</Text>
           <View style={styles.pickerWrapper}>
@@ -284,6 +322,32 @@ export default function AlunoForm() {
               ))}
             </Picker>
           </View>
+        </View>
+
+        {/* Treinos (seleção múltipla) */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Treinos (toque para selecionar/deselecionar)</Text>
+          <FlatList
+            data={treinos}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => {
+              const selected = treinoIds.includes(item.id);
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.treinoItem,
+                    selected && styles.treinoItemSelected
+                  ]}
+                  onPress={() => toggleTreinoSelection(item.id)}
+                >
+                  <Text style={selected ? styles.treinoTextSelected : styles.treinoText}>
+                    {item.nome}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={() => <Text>Nenhum treino disponível</Text>}
+          />
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
@@ -314,8 +378,29 @@ const styles = StyleSheet.create({
   datePickerColumn: { flex: 1, marginHorizontal: 2 },
   datePickerLabel: { fontSize: 14, color: '#555', marginBottom: 5, textAlign: 'center' },
   selectedDateText: { textAlign: 'center', marginTop: 5, color: '#555' },
+
+  treinoItem: {
+    padding: 10,
+    backgroundColor: '#eee',
+    borderRadius: 5,
+    marginBottom: 5,
+  },
+  treinoItemSelected: {
+    backgroundColor: '#28a745',
+  },
+  treinoText: {
+    color: '#333',
+    fontSize: 16,
+  },
+  treinoTextSelected: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+
   submitButton: { backgroundColor: '#28a745', paddingVertical: 15, borderRadius: 8, marginTop: 20, alignItems: 'center' },
   submitButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+
   backButton: { backgroundColor: '#6c757d', paddingVertical: 10, borderRadius: 5, marginTop: 20, alignItems: 'center' },
   backButtonText: { color: 'white', fontSize: 16 },
 });

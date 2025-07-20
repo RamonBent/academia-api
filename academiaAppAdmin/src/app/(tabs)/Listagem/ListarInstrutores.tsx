@@ -54,7 +54,6 @@ export default function ListarInstrutores() {
     try {
       await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
       
-      // Atualização otimista - remove o instrutor da lista antes de recarregar
       setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
       
       Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
@@ -62,7 +61,6 @@ export default function ListarInstrutores() {
     } catch (error) {
       console.error("Erro ao excluir instrutor:", error);
       Alert.alert("Erro", "Não foi possível excluir o instrutor.");
-      // Recarrega a lista em caso de erro para garantir consistência
       fetchInstrutores();
     } finally {
       setDeletingId(null);
@@ -87,19 +85,20 @@ export default function ListarInstrutores() {
   if (loading && instrutores.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Carregando instrutores...</Text>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando instrutores...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Instrutores</Text>
 
       <TextInput
         style={styles.searchInput}
         placeholder="Pesquisar instrutor pelo nome"
+        placeholderTextColor="#95a5a6"
         value={filtro}
         onChangeText={setFiltro}
         autoCapitalize="none"
@@ -111,41 +110,65 @@ export default function ListarInstrutores() {
         </Text>
       ) : (
         instrutoresFiltrados.map((instrutor) => (
-          <View key={instrutor.id} style={styles.cardRow}>
-            <View style={styles.card}>
-              <Text style={styles.name}>{instrutor.nome || 'Nome não informado'}</Text>
-              <Text>CREF: {instrutor.cref || '-'}</Text>
-              <Text>Especialidade: {instrutor.especialidade || '-'}</Text>
-              <Text>Telefone: {instrutor.telefone || '-'}</Text>
-              <Text>Email: {instrutor.email || '-'}</Text>
+          <View key={instrutor.id} style={styles.cardContainer}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>{instrutor.nome || 'Nome não informado'}</Text>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>CREF:</Text>
+                <Text>{instrutor.cref || '-'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Especialidade:</Text>
+                <Text>{instrutor.especialidade || '-'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Telefone:</Text>
+                <Text>{instrutor.telefone || '-'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Email:</Text>
+                <Text>{instrutor.email || '-'}</Text>
+              </View>
             </View>
-            <TouchableOpacity
-              style={[styles.editButton, editingId === instrutor.id && styles.disabledButton]}
-              onPress={() => handleEdit(instrutor.id)}
-              disabled={editingId === instrutor.id}
-            >
-              {editingId === instrutor.id ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.editButtonText}>Editar</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.deleteButton, deletingId === instrutor.id && styles.disabledButton]}
-              onPress={() => deleteInstrutor(instrutor.id)}
-              disabled={deletingId === instrutor.id}
-            >
-              {deletingId === instrutor.id ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.deleteButtonText}>Excluir</Text>
-              )}
-            </TouchableOpacity>
+            
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[styles.button, styles.editButton, editingId === instrutor.id && styles.disabledButton]}
+                onPress={() => handleEdit(instrutor.id)}
+                disabled={editingId === instrutor.id}
+              >
+                {editingId === instrutor.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Editar</Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, styles.deleteButton, deletingId === instrutor.id && styles.disabledButton]}
+                onPress={() => deleteInstrutor(instrutor.id)}
+                disabled={deletingId === instrutor.id}
+              >
+                {deletingId === instrutor.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
+        activeOpacity={0.8}
+      >
         <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -155,90 +178,125 @@ export default function ListarInstrutores() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  contentContainer: {
     padding: 20,
-    backgroundColor: '#f8f8f8',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f7fa',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#7f8c8d',
+    fontSize: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontWeight: '700',
+    marginBottom: 25,
     textAlign: 'center',
-    color: '#333',
+    color: '#2c3e50',
+    letterSpacing: 0.5,
   },
   searchInput: {
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
     fontSize: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e6ed',
+    color: '#2c3e50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardContent: {
     marginBottom: 15,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: '#2c3e50',
   },
   cardRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  card: {
-    backgroundColor: '#e0e0e0',
-    padding: 15,
-    borderRadius: 8,
-    flex: 1,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginBottom: 5,
   },
-  editButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
+  cardLabel: {
+    fontWeight: '600',
+    width: 100,
+    color: '#34495e',
   },
-  editButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
   },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#a0a0a0',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#888',
-    marginTop: 30,
-    fontSize: 16,
-  },
-  backButton: {
-    backgroundColor: '#6c757d',
+  button: {
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 5,
-    marginTop: 5,
-    marginBottom: 25,
+    marginLeft: 10,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  editButton: {
+    backgroundColor: '#27ae60',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 30,
+    color: '#7f8c8d',
+    fontSize: 16,
+  },
+  backButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+    marginTop: 20,
     alignSelf: 'center',
+    shadowColor: '#2980b9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   backButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -3,6 +3,8 @@ package com.academia.academia_api.controller;
 import com.academia.academia_api.DTO.request.AlunoRequestDTO;
 import com.academia.academia_api.DTO.response.AlunoResponseDTO;
 import com.academia.academia_api.model.Aluno;
+import com.academia.academia_api.model.Treino;
+import com.academia.academia_api.repository.AlunoRepository;
 import com.academia.academia_api.service.AlunoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,9 @@ public class AlunoController {
 
     @Autowired
     private AlunoService alunoService;
+
+    @Autowired
+    private AlunoRepository alunoRepository;
 
 
     @GetMapping("/hello")
@@ -55,4 +60,21 @@ public class AlunoController {
     public List<Aluno> buscarPorNome(@RequestParam String nome) {
         return alunoService.buscarPorNome(nome);
     }
+
+    @PostMapping("/{id}/treinos")
+    public ResponseEntity<Void> adicionarTreinosAoAluno(
+            @PathVariable Long id,
+            @RequestBody List<Long> treinoIds) {
+        alunoService.atribuirTreinosAoAluno(id, treinoIds);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/treinos")
+    public ResponseEntity<List<Treino>> listarTreinosDoAluno(@PathVariable Long id) {
+        Aluno aluno = alunoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Aluno não encontrado"));
+
+        return ResponseEntity.ok(aluno.getTreinos());
+    }
+
 }

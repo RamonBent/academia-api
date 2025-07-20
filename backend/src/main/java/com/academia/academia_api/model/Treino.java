@@ -1,16 +1,14 @@
 package com.academia.academia_api.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "treinos")
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,15 +22,10 @@ public class Treino {
 
     private String objetivo;
 
-    private LocalDate dataInicio;
+    private String nivel;
 
-    private LocalDate dataFim;
+    @JsonBackReference
+    @ManyToMany(mappedBy = "treinos")
+    private List<Aluno> alunos = new ArrayList<>();
 
-    @ManyToOne
-    @JoinColumn(name = "aluno_id")
-    private Aluno aluno;
-
-    @OneToMany(mappedBy = "treino")
-    private List<Exercicio> exercicios;
 }
-

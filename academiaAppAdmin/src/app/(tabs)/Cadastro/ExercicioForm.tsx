@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import Constants from 'expo-constants';
 
 export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
@@ -11,9 +9,15 @@ export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 export default function ExercicioForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [nomeExercicio, setNomeExercicio] = useState('');
-  const [grupoMuscular, setGrupoMuscular] = useState('');
-  const [descricao, setDescricao] = useState('');
+  const [form, setForm] = useState({
+    nome: '',
+    grupoMuscular: '',
+    series: '',
+    repeticoes: '',
+    carga: '',
+    descansoSegundos: '',
+    treinoId: ''
+  });
   const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
@@ -21,72 +25,134 @@ export default function ExercicioForm() {
       axios.get(`${API_BASE_URL}/api/exercicios/${id}`)
         .then(response => {
           const exercicio = response.data;
-          setNomeExercicio(exercicio.nomeExercicio || '');
-          setGrupoMuscular(exercicio.grupoMuscular || '');
-          setDescricao(exercicio.descricao || '');
+          setForm({
+            nome: exercicio.nome || '',
+            grupoMuscular: exercicio.grupoMuscular || '',
+            series: exercicio.series?.toString() || '',
+            repeticoes: exercicio.repeticoes?.toString() || '',
+            carga: exercicio.carga?.toString() || '',
+            descansoSegundos: exercicio.descansoSegundos?.toString() || '',
+            treinoId: exercicio.treinoId?.toString() || ''
+          });
           setIsEdit(true);
         })
         .catch(() => Alert.alert('Erro', 'Erro ao carregar exercício para edição.'));
     }
   }, [id]);
 
+  const handleChange = (name, value) => {
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmit = async () => {
-    if (nomeExercicio && grupoMuscular && descricao) {
-      try {
-        const exercicioRequest = {
-          nomeExercicio,
-          grupoMuscular,
-          descricao,
-        };
-        if (isEdit) {
-          await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
-        } else {
-          await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
-        }
-        router.back();
-      } catch (error) {
-        Alert.alert('Erro', 'Erro ao salvar exercício.');
+    if (!form.nome || !form.grupoMuscular || !form.series || !form.repeticoes || !form.descansoSegundos || !form.treinoId) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    try {
+      const exercicioRequest = {
+        ...form,
+        series: parseInt(form.series),
+        repeticoes: parseInt(form.repeticoes),
+        carga: form.carga ? parseFloat(form.carga) : null,
+        descansoSegundos: parseInt(form.descansoSegundos),
+        treinoId: parseInt(form.treinoId)
+      };
+
+      if (isEdit) {
+        await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
+        Alert.alert('Sucesso', 'Exercício atualizado com sucesso!');
+      } else {
+        await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
+        Alert.alert('Sucesso', 'Exercício cadastrado com sucesso!');
       }
-    } else {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      
+      router.back();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', error.response?.data?.message || 'Erro ao salvar exercício.');
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>
-        {isEdit ? 'Editar Exercício' : 'Formulário de Cadastro de Exercício'}
+        {isEdit ? 'Editar Exercício' : 'Cadastrar Novo Exercício'}
       </Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nome do Exercício:</Text>
+        <Text style={styles.label}>Nome*</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Supino Reto"
-          value={nomeExercicio}
-          onChangeText={setNomeExercicio}
+          value={form.nome}
+          onChangeText={(text) => handleChange('nome', text)}
+          placeholder="Nome do exercício"
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Grupo Muscular:</Text>
+        <Text style={styles.label}>Grupo Muscular*</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Peito, Tríceps"
-          value={grupoMuscular}
-          onChangeText={setGrupoMuscular}
+          value={form.grupoMuscular}
+          onChangeText={(text) => handleChange('grupoMuscular', text)}
+          placeholder="Ex: Peito, Costas, Pernas"
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Descrição/Instruções:</Text>
+        <Text style={styles.label}>Séries*</Text>
         <TextInput
           style={styles.input}
-          placeholder="Detalhes sobre a execução do exercício"
-          multiline
-          numberOfLines={4}
-          value={descricao}
-          onChangeText={setDescricao}
+          value={form.series}
+          onChangeText={(text) => handleChange('series', text)}
+          placeholder="Número de séries"
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Repetições*</Text>
+        <TextInput
+          style={styles.input}
+          value={form.repeticoes}
+          onChangeText={(text) => handleChange('repeticoes', text)}
+          placeholder="Número de repetições"
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Carga (kg)</Text>
+        <TextInput
+          style={styles.input}
+          value={form.carga}
+          onChangeText={(text) => handleChange('carga', text)}
+          placeholder="Peso em kg (opcional)"
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Descanso (segundos)*</Text>
+        <TextInput
+          style={styles.input}
+          value={form.descansoSegundos}
+          onChangeText={(text) => handleChange('descansoSegundos', text)}
+          placeholder="Tempo de descanso entre séries"
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>ID do Treino*</Text>
+        <TextInput
+          style={styles.input}
+          value={form.treinoId}
+          onChangeText={(text) => handleChange('treinoId', text)}
+          placeholder="ID do treino associado"
+          keyboardType="numeric"
         />
       </View>
 
@@ -96,8 +162,11 @@ export default function ExercicioForm() {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Cadastro</Text>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
+      >
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );

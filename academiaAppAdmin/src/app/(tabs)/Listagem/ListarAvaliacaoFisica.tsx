@@ -1,74 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
-
 import Constants from 'expo-constants';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
 
 export default function ListarAvaliacaoFisica() {
-  const [avaliacoesFisica, setavaliacoesFisica] = useState([]);
+  const [avaliacoesFisica, setAvaliacoesFisica] = useState([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const loadAvaliacoesFisica = async () => {
+    const fetchAvaliacoes = async () => {
       try {
-        const storedAvaliacoesFisica = await AsyncStorage.getItem(`${API_BASE_URL}/api/avaliacoes`);
-        if (storedAvaliacoesFisica !== null) {
-          setavaliacoesFisica(JSON.parse(storedAvaliacoesFisica));
-        }
+        const response = await axios.get(`${API_BASE_URL}/api/avaliacoes`);
+        setAvaliacoesFisica(response.data);
       } catch (error) {
-        console.error("Error loading avaliações físicas from AsyncStorage", error);
+        console.error("Erro ao buscar avaliações físicas da API", error);
+        Alert.alert("Erro", "Não foi possível carregar as avaliações físicas");
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadAvaliacoesFisica();
+    fetchAvaliacoes();
   }, []);
 
   const handleDelete = async (id) => {
-    const filtered = avaliacoesFisica.filter((avaliacao) => avaliacao.id !== id);
-    setavaliacoesFisica(filtered);
-    await AsyncStorage.setItem(`${API_BASE_URL}/api/avaliacoes`, JSON.stringify(filtered));
+    try {
+      await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
+      setAvaliacoesFisica(prev => prev.filter(avaliacao => avaliacao.id !== id));
+      Alert.alert("Sucesso", "Avaliação física excluída com sucesso");
+    } catch (error) {
+      console.error("Erro ao deletar avaliação", error);
+      Alert.alert("Erro", "Não foi possível excluir a avaliação física");
+    }
   };
 
   const handleEdit = (id) => {
     router.push({ pathname: '/Cadastro/AvaliacaoFisicaForm', params: { id } });
   };
 
+  const formatAltura = (altura) => {
+    if (!altura) return 'N/A';
+    return altura < 10 ? `${altura * 100} cm` : `${altura} m`;
+  };
+
+  const formatIMC = (imc) => {
+    if (!imc) return 'N/A';
+    if (imc < 10 || imc > 100) return 'Inválido';
+    return imc.toFixed(2);
+  };
+
+  const formatDate = (dateString) => {
+    try {
+      return format(parseISO(dateString), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return dateString || 'N/A';
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Lista de avaliações físicas</Text>
-      {avaliacoesFisica.length === 0 ? (
+      <Text style={styles.title}>Lista de Avaliações Físicas</Text>
+      
+      {loading ? (
+        <Text style={styles.loadingText}>Carregando...</Text>
+      ) : avaliacoesFisica.length === 0 ? (
         <Text style={styles.emptyText}>Nenhuma avaliação física cadastrada.</Text>
       ) : (
-        avaliacoesFisica.map((avaliacao, index) => (
-          <View key={avaliacao.id || index} style={styles.avaliacoesFisicaCardRow}>
-            <View style={styles.avaliacoesFisicaCard}>
-              <Text style={styles.avaliacoesFisicaName}>Aluno ID: {avaliacao.alunoId || 'Não informado'}</Text>
-              <Text>Data: {avaliacao.dataAvaliacao}</Text>
-              <Text>Peso: {avaliacao.peso} kg</Text>
-              <Text>Altura: {avaliacao.altura} m</Text>
-              <Text>IMC: {avaliacao.imc}</Text>
-              <Text>% Gordura: {avaliacao.percentualGordura}</Text>
+        avaliacoesFisica.map((avaliacao) => (
+          <View key={avaliacao.id} style={styles.cardContainer}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>
+                Aluno: {avaliacao.nomeAluno || 'Nome não disponível'}
+              </Text>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Data:</Text>
+                <Text>{formatDate(avaliacao.dataAvaliacao)}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Peso:</Text>
+                <Text>{avaliacao.peso ? `${avaliacao.peso} kg` : 'N/A'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Altura:</Text>
+                <Text>{formatAltura(avaliacao.altura)}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>IMC:</Text>
+                <Text style={avaliacao.imc < 10 || avaliacao.imc > 100 ? styles.invalidValue : null}>
+                  {formatIMC(avaliacao.imc)}
+                </Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Observações:</Text>
+                <Text style={styles.observacoesText}>
+                  {avaliacao.observacoes || 'Nenhuma observação'}
+                </Text>
+              </View>
             </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => handleEdit(avaliacao.id)}
-            >
-              <Text style={styles.editButtonText}>Editar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDelete(avaliacao.id)}
-            >
-              <Text style={styles.deleteButtonText}>Excluir</Text>
-            </TouchableOpacity>
+            
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[styles.button, styles.editButton]}
+                onPress={() => handleEdit(avaliacao.id)}
+              >
+                <Text style={styles.buttonText}>Editar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, styles.deleteButton]}
+                onPress={() => handleDelete(avaliacao.id)}
+              >
+                <Text style={styles.buttonText}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Listagem</Text>
+      
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => router.back()}
+      >
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -83,69 +147,92 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 30,
+    marginBottom: 25,
     textAlign: 'center',
-    color: '#333',
+    color: '#2c3e50',
   },
-  avaliacoesFisicaCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  avaliacoesFisicaCard: {
-    backgroundColor: '#e0e0e0',
-    padding: 15,
-    borderRadius: 8,
-    flex: 1,
-  },
-  avaliacoesFisicaName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  editButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  loadingText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#7f8c8d',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#888',
     marginTop: 30,
+    color: '#7f8c8d',
     fontSize: 16,
   },
-  backButton: {
-    backgroundColor: '#6c757d',
-    paddingVertical: 10,
+  cardContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardContent: {
+    marginBottom: 15,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#2c3e50',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    marginBottom: 5,
+  },
+  cardLabel: {
+    fontWeight: '600',
+    width: 100,
+    color: '#34495e',
+  },
+  observacoesText: {
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  invalidValue: {
+    color: '#e74c3c',
+    fontWeight: 'bold',
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  button: {
+    paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 5,
-    marginTop: 5,
-    marginBottom: 25,
+    marginLeft: 10,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  editButton: {
+    backgroundColor: '#27ae60',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+  },
+  backButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 5,
+    marginTop: 20,
     alignSelf: 'center',
   },
   backButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
   },
 });

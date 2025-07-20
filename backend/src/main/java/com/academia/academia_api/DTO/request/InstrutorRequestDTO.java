@@ -8,5 +8,5 @@ public class InstrutorRequestDTO {
     private String cpf;
     private String telefone;
     private String email;
-    private String numeroCREEF;
+    private String cref;
 }
