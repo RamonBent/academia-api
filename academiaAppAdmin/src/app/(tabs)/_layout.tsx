@@ -19,18 +19,25 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="Cadastro" // This points to the 'app/(tabs)/Cadastro' directory
+        name="Cadastro"
         options={{
           title: 'Cadastro',
-          headerShown: false, // Hides the header for the tab itself
+          headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome name="plus" size={24} color={focused ? color : 'gray'} />
           ),
         }}
+        listeners={({ navigation, route }) => ({
+          tabPress: () => {
+            // Always navigate to the Cadastro index (list) screen
+            navigation.navigate('Cadastro');
+          },
+        })}
       />
 
+
       <Tabs.Screen
-        name="HomeScreen" // This points to the 'app/(tabs)/HomeScreen.js' file
+        name="HomeScreen"
         options={{
           title: 'Home',
           headerShown: false,
@@ -38,10 +45,15 @@ export default function TabLayout() {
             <FontAwesome name="home" size={24} color={focused ? color : 'gray'} />
           ),
         }}
+        listeners={({ navigation, route }) => ({
+          tabPress: () => {
+            navigation.navigate('HomeScreen');
+          },
+        })}
       />
 
       <Tabs.Screen
-        name="Listagem" // This points to the 'app/(tabs)/Listagem.js' file
+        name="Listagem"
         options={{
           title: 'Listagem',
           headerShown: false,
@@ -49,6 +61,11 @@ export default function TabLayout() {
             <FontAwesome name="bars" size={24} color={focused ? color : 'gray'} />
           ),
         }}
+        listeners={({ navigation, route }) => ({
+          tabPress: () => {
+            navigation.navigate('Listagem');
+          },
+        })}
       />
     </Tabs>
   );
