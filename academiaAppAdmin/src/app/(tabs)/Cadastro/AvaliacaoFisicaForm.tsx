@@ -14,6 +14,10 @@ import {
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 
+import Constants from 'expo-constants';
+
+export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
+
 export default function AvaliacaoFisicaForm() {
   const router = useRouter();
 
@@ -32,7 +36,7 @@ export default function AvaliacaoFisicaForm() {
 
   const buscarAlunos = async (nome: string) => {
     try {
-      const response = await axios.get(`http://192.168.1.108:8080/api/alunos/buscar?nome=${nome}`);
+      const response = await axios.get(`${API_BASE_URL}/api/alunos/buscar?nome=${nome}`);
       setSuggestions(response.data);
     } catch (error) {
       console.error('Erro ao buscar alunos', error);
@@ -89,7 +93,7 @@ export default function AvaliacaoFisicaForm() {
     }
 
     try {
-      await axios.post('http://192.168.1.108:8080/api/avaliacoes', {
+      await axios.post(`${API_BASE_URL}/api/avaliacoes`, {
         ...avaliacao,
         peso: parseFloat(peso),
         altura: parseFloat(altura),
