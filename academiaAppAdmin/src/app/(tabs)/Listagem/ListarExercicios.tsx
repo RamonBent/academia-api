@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 
-export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);

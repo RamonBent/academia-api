@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarAvaliacaoFisica() {
   const [avaliacoesFisica, setAvaliacoesFisica] = useState([]);

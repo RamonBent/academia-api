@@ -12,7 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 
-export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function TreinoForm() {
   const router = useRouter();

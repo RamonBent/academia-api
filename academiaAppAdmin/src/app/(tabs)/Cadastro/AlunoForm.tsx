@@ -9,7 +9,7 @@ import { Picker } from '@react-native-picker/picker';
 
 import Constants from 'expo-constants';
 
-export const API_BASE_URL = Constants?.manifest?.extra?.API_BASE_URL;
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function AlunoForm() {
   const router = useRouter();
