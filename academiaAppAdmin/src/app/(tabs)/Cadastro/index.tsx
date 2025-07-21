@@ -33,7 +33,7 @@ export default function CadastroScreen() {
           <CustomButton
             key={index}
             title={option.title}
-            onPress={() => router.push(option.route)}
+            onPress={() => router.push(option.route as any)}
             containerStyle={styles.button}
             textStyle={styles.buttonText}
           />
@@ -73,5 +73,8 @@ const styles = StyleSheet.create({
   button: {
     marginVertical: 8,
     width: '100%',
+  },
+  buttonText: {
+    color: '#000'
   },
 });

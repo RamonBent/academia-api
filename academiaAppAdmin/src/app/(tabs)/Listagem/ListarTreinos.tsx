@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
@@ -33,9 +33,12 @@ export default function ListarTreinos() {
     }
   };
 
-  useEffect(() => {
-    loadTreinos();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTreinos();
+    }, [])
+  );
+
 
   const handleDelete = async (id) => {
     Alert.alert('Confirmação', 'Deseja realmente excluir este treino?', [

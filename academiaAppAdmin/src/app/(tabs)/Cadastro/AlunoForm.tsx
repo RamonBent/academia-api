@@ -161,11 +161,12 @@ export default function AlunoForm() {
       if (isEdit) {
         await axios.put(`${API_BASE_URL}/api/alunos/${id}`, alunoRequest);
         Alert.alert("Sucesso", "Aluno atualizado com sucesso!");
+        router.replace('/(tabs)/Listagem/ListarAlunos'); // Vai para a listagem após editar
       } else {
         await axios.post(`${API_BASE_URL}/api/alunos`, alunoRequest);
         Alert.alert("Sucesso", "Aluno cadastrado com sucesso!");
+        router.back();
       }
-      router.back();
     } catch (error: any) {
       console.error("Erro ao salvar aluno:", error.response?.data || error.message);
       Alert.alert("Erro", "Não foi possível salvar o aluno.");

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function Listagem() {
   const router = useRouter();
 
-  const buttons = [
+  const registrationOptions = [
     { title: "👥 Alunos", route: '/Listagem/ListarAlunos' },
     { title: "📏 Avaliações Físicas", route: '/Listagem/ListarAvaliacaoFisica' },
     { title: "🏋️ Exercícios", route: '/Listagem/ListarExercicios' },
@@ -29,11 +29,11 @@ export default function Listagem() {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        {buttons.map((button, index) => (
+        {registrationOptions.map((button, index) => (
           <CustomButton
             key={index}
             title={button.title}
-            onPress={() => router.push(button.route)}
+            onPress={() => router.push(button.route as any)}
             containerStyle={styles.button}
             textStyle={styles.buttonText}
           />
@@ -74,5 +74,8 @@ const styles = StyleSheet.create({
   button: {
     marginVertical: 8,
     width: '100%',
+  },
+  buttonText: {
+    color: '#000'
   },
 });

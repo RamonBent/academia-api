@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
 } from 'react-native';
@@ -18,9 +18,13 @@ export default function ListarInstrutores() {
   const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
-  useEffect(() => {
-    fetchInstrutores();
-  }, []);
+  // Carrega dinamicamente ao focar na tela
+  const { useFocusEffect } = require('expo-router');
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchInstrutores();
+    }, [])
+  );
 
   useEffect(() => {
     if (filtro.trim() === '') {

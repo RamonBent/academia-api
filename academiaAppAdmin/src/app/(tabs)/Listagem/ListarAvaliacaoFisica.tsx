@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
@@ -11,32 +11,45 @@ const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 export default function ListarAvaliacaoFisica() {
   const [avaliacoesFisica, setAvaliacoesFisica] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchAvaliacoes = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/avaliacoes`);
-        setAvaliacoesFisica(response.data);
-      } catch (error) {
-        console.error("Erro ao buscar avaliações físicas da API", error);
-        Alert.alert("Erro", "Não foi possível carregar as avaliações físicas");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Carrega dinamicamente ao focar na tela
+  const { useFocusEffect } = require('expo-router');
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAvaliacoes();
+    }, [])
+  );
 
-    fetchAvaliacoes();
-  }, []);
+  const fetchAvaliacoes = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/avaliacoes`);
+      setAvaliacoesFisica(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar avaliações físicas da API", error);
+      Alert.alert("Erro", "Não foi possível carregar as avaliações físicas");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async (id) => {
+    setDeletingId(id);
     try {
       await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
-      setAvaliacoesFisica(prev => prev.filter(avaliacao => avaliacao.id !== id));
-      Alert.alert("Sucesso", "Avaliação física excluída com sucesso");
+      
+      setAvaliacoesFisica(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
+      
+      Alert.alert("Sucesso", "avaliação excluída com sucesso!");
+      
     } catch (error) {
-      console.error("Erro ao deletar avaliação", error);
-      Alert.alert("Erro", "Não foi possível excluir a avaliação física");
+      console.error("Erro ao excluir avaliação:", error);
+      Alert.alert("Erro", "Não foi possível excluir a avaliação.");
+      fetchAvaliacoes();
+    } finally {
+      setDeletingId(null);
     }
   };
 

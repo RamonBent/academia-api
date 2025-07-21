@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -9,18 +10,19 @@ import {
   Alert,
   FlatList,
   TouchableWithoutFeedback,
-  Keyboard,
+  Keyboard
 } from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
-
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
+
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function AvaliacaoFisicaForm() {
   const router = useRouter();
-
+  const { id } = useLocalSearchParams();
+  const [isEdit, setIsEdit] = useState(false);
   const [avaliacao, setAvaliacao] = useState({
     dataAvaliacao: '',
     peso: '',
@@ -29,10 +31,30 @@ export default function AvaliacaoFisicaForm() {
     observacoes: '',
     alunoId: '',
   });
-
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Carrega dados para edição
+  useEffect(() => {
+    if (id) {
+      axios.get(`${API_BASE_URL}/api/avaliacoes/${id}`)
+        .then(response => {
+          const data = response.data;
+          setAvaliacao({
+            dataAvaliacao: data.dataAvaliacao ? data.dataAvaliacao.split('-').reverse().join('/') : '',
+            peso: data.peso?.toString() || '',
+            altura: data.altura?.toString() || '',
+            imc: data.imc?.toString() || '',
+            observacoes: data.observacoes || '',
+            alunoId: data.alunoId?.toString() || '',
+          });
+          setSearchTerm(data.alunoNome || '');
+          setIsEdit(true);
+        })
+        .catch(() => Alert.alert('Erro', 'Erro ao carregar avaliação para edição.'));
+    }
+  }, [id]);
 
   const buscarAlunos = async (nome: string) => {
     try {
@@ -93,16 +115,23 @@ export default function AvaliacaoFisicaForm() {
     }
 
     try {
-      await axios.post(`${API_BASE_URL}/api/avaliacoes`, {
+      const avaliacaoRequest = {
         ...avaliacao,
         peso: parseFloat(peso),
         altura: parseFloat(altura),
         imc: parseFloat(imc),
         alunoId: parseInt(alunoId),
-      });
-
-      Alert.alert('Sucesso', 'Avaliação cadastrada com sucesso!');
-      router.back();
+        dataAvaliacao: avaliacao.dataAvaliacao.split('/').reverse().join('-'),
+      };
+      if (isEdit) {
+        await axios.put(`${API_BASE_URL}/api/avaliacoes/${id}`, avaliacaoRequest);
+        Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
+        router.replace('/(tabs)/Listagem/ListarAvaliacaoFisica');
+      } else {
+        await axios.post(`${API_BASE_URL}/api/avaliacoes`, avaliacaoRequest);
+        Alert.alert('Sucesso', 'Avaliação cadastrada com sucesso!');
+        router.back();
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Erro ao cadastrar avaliação');

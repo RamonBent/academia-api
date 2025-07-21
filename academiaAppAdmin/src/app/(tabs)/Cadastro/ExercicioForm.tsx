@@ -63,12 +63,12 @@ export default function ExercicioForm() {
       if (isEdit) {
         await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
         Alert.alert('Sucesso', 'Exercício atualizado com sucesso!');
+        router.replace('/(tabs)/Listagem/ListarExercicios');
       } else {
         await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
         Alert.alert('Sucesso', 'Exercício cadastrado com sucesso!');
+        router.back();
       }
-      
-      router.back();
     } catch (error) {
       console.error(error);
       Alert.alert('Erro', error.response?.data?.message || 'Erro ao salvar exercício.');

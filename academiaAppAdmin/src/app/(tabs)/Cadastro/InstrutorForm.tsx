@@ -70,7 +70,11 @@ export default function InstrutorForm() {
         }
 
         Alert.alert('Sucesso', isEdit ? 'Instrutor atualizado!' : 'Instrutor criado!');
-        router.back();
+        if (isEdit) {
+          router.replace('/(tabs)/Listagem/ListarInstrutores');
+        } else {
+          router.back();
+        }
       } catch (error) {
         Alert.alert('Erro', 'Erro ao salvar instrutor: ' + error.message);
       }

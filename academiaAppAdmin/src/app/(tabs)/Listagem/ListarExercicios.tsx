@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
@@ -10,18 +10,21 @@ export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchExercicios = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
-        setExercicios(response.data);
-      } catch (error) {
-        console.error("Erro ao buscar exercícios da API", error);
-      }
-    };
-
-    fetchExercicios();
-  }, []);
+  // Carrega dinamicamente ao focar na tela
+  const { useFocusEffect } = require('expo-router');
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchExercicios = async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
+          setExercicios(response.data);
+        } catch (error) {
+          console.error("Erro ao buscar exercícios da API", error);
+        }
+      };
+      fetchExercicios();
+    }, [])
+  );
 
   const handleDelete = async (id) => {
     try {

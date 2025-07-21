@@ -49,12 +49,12 @@ export default function TreinoForm() {
         if (isEdit) {
           await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
           Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
+          router.replace('/(tabs)/Listagem/ListarTreinos');
         } else {
           await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
           Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
+          router.back();
         }
-
-        router.back();
       } catch (error) {
         console.error(error);
         Alert.alert('Erro', 'Erro ao salvar treino.');
