@@ -2,7 +2,6 @@ package com.academia.academia_api.DTO.mapper;
 
 import com.academia.academia_api.DTO.request.TreinoRequestDTO;
 import com.academia.academia_api.DTO.response.TreinoResponseDTO;
-import com.academia.academia_api.model.Aluno;
 import com.academia.academia_api.model.Treino;
 
 import java.util.List;

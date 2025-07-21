@@ -3,6 +3,7 @@ import axios from 'axios';
 import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
+import { Picker } from '@react-native-picker/picker';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -18,6 +19,7 @@ export default function ExercicioForm() {
     descansoSegundos: '',
     treinoId: ''
   });
+  const [treinos, setTreinos] = useState<{ id: number; nome: string }[]>([]);
   const [isEdit, setIsEdit] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,12 @@ export default function ExercicioForm() {
     }
   }, [id]);
 
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/api/treinos`)
+      .then(response => setTreinos(response.data))
+      .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de treinos."));
+  }, []);
+
   const handleChange = (name, value) => {
     setForm(prev => ({ ...prev, [name]: value }));
   };
@@ -50,15 +58,16 @@ export default function ExercicioForm() {
       return;
     }
 
+    const exercicioRequest = {
+      nome: form.nome,
+      series: parseInt(form.series),
+      repeticoes: parseInt(form.repeticoes),
+      carga: form.carga ? parseFloat(form.carga) : null,
+      descansoSegundos: parseInt(form.descansoSegundos),
+      treinoId: parseInt(form.treinoId),
+    };
+    
     try {
-      const exercicioRequest = {
-        ...form,
-        series: parseInt(form.series),
-        repeticoes: parseInt(form.repeticoes),
-        carga: form.carga ? parseFloat(form.carga) : null,
-        descansoSegundos: parseInt(form.descansoSegundos),
-        treinoId: parseInt(form.treinoId)
-      };
 
       if (isEdit) {
         await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
@@ -147,13 +156,19 @@ export default function ExercicioForm() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>ID do Treino*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.treinoId}
-          onChangeText={(text) => handleChange('treinoId', text)}
-          placeholder="ID do treino associado"
-          keyboardType="numeric"
-        />
+        <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={form.treinoId}
+              onValueChange={(itemValue) => handleChange('treinoId', itemValue)}
+              mode="dropdown"
+              style={styles.picker}
+            >
+              <Picker.Item label="Selecione um treino" value={null} />
+              {treinos.map(treino => (
+                <Picker.Item key={treino.id} label={treino.nome} value={treino.id.toString()} />
+              ))}
+            </Picker>
+          </View>
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
@@ -230,4 +245,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
+  pickerWrapper: { backgroundColor: '#e0e0e0', borderRadius: 8, overflow: 'hidden' },
+  picker: { height: 50, width: '100%' },
 });

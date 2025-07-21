@@ -29,7 +29,6 @@ export default function TabLayout() {
         }}
         listeners={({ navigation, route }) => ({
           tabPress: () => {
-            // Always navigate to the Cadastro index (list) screen
             navigation.navigate('Cadastro');
           },
         })}
@@ -39,7 +38,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="HomeScreen"
         options={{
-          title: 'Home',
+          title: 'Início',
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome name="home" size={24} color={focused ? color : 'gray'} />

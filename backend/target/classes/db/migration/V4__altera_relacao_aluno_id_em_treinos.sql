@@ -1,0 +1,1 @@
+ALTER TABLE treinos DROP COLUMN aluno_id;
