@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData, syncOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -22,45 +24,96 @@ export default function TreinoForm() {
   const [objetivo, setObjetivo] = useState('');
   const [nivel, setNivel] = useState('');
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+      
+      if (state.isConnected) {
+        syncOfflineData();
+      }
+    });
+
     if (id) {
-      axios.get(`${API_BASE_URL}/api/treinos/${id}`)
-        .then(response => {
-          const treino = response.data;
-          setNome(treino.nome || '');
-          setObjetivo(treino.objetivo || '');
-          setNivel(treino.nivel || '');
-          setIsEdit(true);
-        })
-        .catch(() => Alert.alert('Erro', 'Erro ao carregar treino para edição.'));
+      loadTreinoData();
     }
+
+    return () => unsubscribe();
   }, [id]);
 
-  const handleSubmit = async () => {
-    if (nome && objetivo && nivel) {
-      try {
-        const treinoRequest = {
-          nome,
-          objetivo,
-          nivel,
-        };
+  const loadTreinoData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/treinos/${id}`);
+      const treino = response.data;
+      setNome(treino.nome || '');
+      setObjetivo(treino.objetivo || '');
+      setNivel(treino.nivel || '');
+      setIsEdit(true);
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao carregar treino para edição.');
+    }
+  };
 
-        if (isEdit) {
-          await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
-          Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
-          router.replace('/(tabs)/Listagem/ListarTreinos');
-        } else {
-          await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
-          Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
-          router.back();
-        }
+  const handleSubmit = async () => {
+    if (!nome || !objetivo || !nivel) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    const treinoRequest = {
+      nome,
+      objetivo,
+      nivel,
+    };
+
+    try {
+      if (isEdit) {
+        await handleEdit(treinoRequest);
+      } else {
+        await handleCreate(treinoRequest);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar o treino.');
+    }
+  };
+
+  const handleEdit = async (treinoRequest: any) => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
+
+    await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
+    Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
+    router.replace('/(tabs)/Listagem/ListarTreinos');
+  };
+
+  const handleCreate = async (treinoRequest: any) => {
+    if (isOnline) {
+      try {
+        await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
+        Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
+        router.back();
       } catch (error) {
-        console.error(error);
-        Alert.alert('Erro', 'Erro ao salvar treino.');
+        await saveOfflineAndAlert(treinoRequest);
       }
     } else {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      await saveOfflineAndAlert(treinoRequest);
+    }
+  };
+
+  const saveOfflineAndAlert = async (treinoRequest: any) => {
+    const success = await saveOfflineData(treinoRequest, 'treinos');
+    if (success) {
+      Alert.alert(
+        'Offline Mode',
+        'Treino salvo localmente. Será sincronizado quando você estiver online.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } else {
+      Alert.alert('Erro', 'Falha ao salvar o treino localmente.');
     }
   };
 
@@ -69,6 +122,12 @@ export default function TreinoForm() {
       <Text style={styles.title}>
         {isEdit ? 'Editar Treino' : 'Cadastrar Novo Treino'}
       </Text>
+
+      {!isOnline && !isEdit && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados serão sincronizados quando a conexão for restaurada.</Text>
+        </View>
+      )}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Nome do Treino</Text>
@@ -163,5 +222,15 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: 'white',
     fontSize: 16,
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });
