@@ -14,7 +14,7 @@ import { PieChart } from 'react-native-chart-kit';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native'; // Import useIsFocused
+import { useIsFocused } from '@react-navigation/native'; 
 
 const screenWidth = Dimensions.get('window').width;
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
@@ -45,7 +45,7 @@ const chartConfig = {
 };
 
 export default function HomeScreen() {
-  const isFocused = useIsFocused(); // Track screen focus
+  const isFocused = useIsFocused(); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,10 +114,10 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    if (isFocused) { // Only fetch data when screen is focused
+    if (isFocused) { 
       fetchDadosDaAPI();
     }
-  }, [isFocused]); // Add isFocused as dependency
+  }, [isFocused]); 
 
   const onRefresh = () => {
     setRefreshing(true);

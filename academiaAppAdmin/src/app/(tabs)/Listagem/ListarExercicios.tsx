@@ -12,7 +12,7 @@ import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import NetInfo from '@react-native-community/netinfo';
-import { syncOfflineData } from '../../../services/syncService'; // Assuming this path is correct
+import { syncOfflineData } from '../../../services/syncService'; 
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -20,10 +20,10 @@ export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [isOnline, setIsOnline] = useState(true); // State to track network status
+  const [isOnline, setIsOnline] = useState(true); 
   const router = useRouter();
 
-  // Effect to listen for network changes
+  
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -31,13 +31,13 @@ export default function ListarExercicios() {
     return () => unsubscribe();
   }, []);
 
-  // Function to fetch exercises from API
+  
   const fetchExercicios = async () => {
     setLoading(true);
-    // Only attempt to fetch if online
+    
     if (!isOnline) {
       setLoading(false);
-      // In a real offline scenario, you'd load from a local database here
+      
       return;
     }
     try {
@@ -51,31 +51,31 @@ export default function ListarExercicios() {
     }
   };
 
-  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
+  
   useFocusEffect(
     React.useCallback(() => {
-      setLoading(true); // Start loading when screen is focused
+      setLoading(true); 
       NetInfo.fetch().then(state => {
         if (state.isConnected) {
-          // If online, try to sync offline data first
+          
           syncOfflineData().then(() => {
-            fetchExercicios(); // Then fetch fresh data
+            fetchExercicios(); 
           }).catch(syncError => {
             console.error('Erro durante a sincronização:', syncError);
             Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
-            fetchExercicios(); // Still try to load data even if sync fails
+            fetchExercicios(); 
           });
         } else {
-          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          
           Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
-          fetchExercicios(); // Try to fetch, knowing it might fail
+          fetchExercicios(); 
         }
       });
     }, [])
   );
 
   const handleDelete = async (id) => {
-    // Prevent deletion if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
       return;
@@ -98,7 +98,7 @@ export default function ListarExercicios() {
           } catch (error) {
             console.error("Erro ao deletar exercício:", error);
             Alert.alert("Erro", "Não foi possível excluir o exercício. Tente novamente.");
-            fetchExercicios(); // Reload data in case of error
+            fetchExercicios(); 
           } finally {
             setDeletingId(null);
           }
@@ -108,7 +108,7 @@ export default function ListarExercicios() {
   };
 
   const handleEdit = (id) => {
-    // Prevent editing if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
       return;
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   contentContainer: {
-    paddingBottom: 40, // Add padding to the bottom for better scrolling
+    paddingBottom: 40, 
   },
   loadingContainer: {
     flex: 1,
@@ -309,6 +309,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   disabledButton: {
-    backgroundColor: '#95a5a6', // Gray out disabled buttons
+    backgroundColor: '#95a5a6', 
   },
 });

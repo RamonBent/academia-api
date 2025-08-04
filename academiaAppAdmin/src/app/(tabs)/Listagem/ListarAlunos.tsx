@@ -3,10 +3,10 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
 } from 'react-native';
 import axios from 'axios';
-import { useRouter, useFocusEffect } from 'expo-router'; // useFocusEffect imported here
+import { useRouter, useFocusEffect } from 'expo-router'; 
 import Constants from 'expo-constants';
-import NetInfo from '@react-native-community/netinfo'; // Import NetInfo
-import { syncOfflineData } from '../../../services/syncService'; // Import syncOfflineData
+import NetInfo from '@react-native-community/netinfo'; 
+import { syncOfflineData } from '../../../services/syncService'; 
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -17,10 +17,10 @@ export default function ListarAlunos() {
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [isOnline, setIsOnline] = useState(true); // State to track network status
+  const [isOnline, setIsOnline] = useState(true); 
   const router = useRouter();
 
-  // Effect to listen for network changes
+  
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -28,30 +28,30 @@ export default function ListarAlunos() {
     return () => unsubscribe();
   }, []);
 
-  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
+  
   useFocusEffect(
     React.useCallback(() => {
-      setLoading(true); // Start loading when screen is focused
+      setLoading(true); 
       NetInfo.fetch().then(state => {
         if (state.isConnected) {
-          // If online, try to sync offline data first
+          
           syncOfflineData().then(() => {
-            fetchAlunos(); // Then fetch fresh data
+            fetchAlunos(); 
           }).catch(syncError => {
             console.error('Erro durante a sincronização:', syncError);
             Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
-            fetchAlunos(); // Still try to load data even if sync fails
+            fetchAlunos(); 
           });
         } else {
-          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          
           Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
-          fetchAlunos(); // Try to fetch, knowing it might fail
+          fetchAlunos(); 
         }
       });
     }, [])
   );
 
-  // Filter students based on search term
+  
   useEffect(() => {
     if (filtro.trim() === '') {
       setAlunosFiltrados(alunos);
@@ -67,10 +67,10 @@ export default function ListarAlunos() {
 
   const fetchAlunos = async () => {
     setLoading(true);
-    // Only attempt to fetch if online
+    
     if (!isOnline) {
       setLoading(false);
-      // In a real offline scenario, you'd load from a local database here
+      
       return; 
     }
     try {
@@ -87,7 +87,7 @@ export default function ListarAlunos() {
   };
 
   const deleteAluno = async (id) => {
-    // Prevent deletion if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
       return;
@@ -106,7 +106,7 @@ export default function ListarAlunos() {
           try {
             await axios.delete(`${API_BASE_URL}/api/alunos/${id}`);
             
-            // Optimistically update the UI
+            
             setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
             
             Alert.alert("Sucesso", "Aluno excluído com sucesso!");
@@ -114,7 +114,7 @@ export default function ListarAlunos() {
           } catch (error) {
             console.error("Erro ao excluir aluno:", error);
             Alert.alert("Erro", "Não foi possível excluir o aluno. Tente novamente.");
-            fetchAlunos(); // Reload data in case of error
+            fetchAlunos(); 
           } finally {
             setDeletingId(null);
           }
@@ -124,7 +124,7 @@ export default function ListarAlunos() {
   };
 
   const handleEdit = (id) => {
-    // Prevent editing if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
       return;
@@ -186,7 +186,7 @@ export default function ListarAlunos() {
         value={filtro}
         onChangeText={setFiltro}
         autoCapitalize="words"
-        editable={isOnline} // Disable search if offline (as it relies on API)
+        editable={isOnline} 
       />
 
       {alunosFiltrados.length === 0 ? (
@@ -219,7 +219,7 @@ export default function ListarAlunos() {
               <TouchableOpacity
                 style={[styles.button, styles.editButton, editingId === aluno.id && styles.disabledButton]}
                 onPress={() => handleEdit(aluno.id)}
-                disabled={editingId === aluno.id || !isOnline} // Disable edit if offline
+                disabled={editingId === aluno.id || !isOnline} 
               >
                 {editingId === aluno.id ? (
                   <ActivityIndicator color="white" />
@@ -231,7 +231,7 @@ export default function ListarAlunos() {
               <TouchableOpacity
                 style={[styles.button, styles.deleteButton, deletingId === aluno.id && styles.disabledButton]}
                 onPress={() => deleteAluno(aluno.id)}
-                disabled={deletingId === aluno.id || !isOnline} // Disable delete if offline
+                disabled={deletingId === aluno.id || !isOnline} 
               >
                 {deletingId === aluno.id ? (
                   <ActivityIndicator color="white" />

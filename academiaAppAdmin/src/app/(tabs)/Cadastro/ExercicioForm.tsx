@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 40, // Espaço extra no final para evitar que o teclado cubra os botões
+    paddingBottom: 40, 
   },
   title: {
     fontSize: 22,

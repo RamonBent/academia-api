@@ -36,7 +36,7 @@ export default function AvaliacaoFisicaForm() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Detect network status
+  
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -44,7 +44,7 @@ export default function AvaliacaoFisicaForm() {
     return () => unsubscribe();
   }, []);
 
-  // Carrega dados para edição
+  
   useEffect(() => {
     if (id) {
       loadAvaliacaoData();
@@ -127,7 +127,7 @@ export default function AvaliacaoFisicaForm() {
       return;
     }
 
-    // Convertendo a data de DD/MM/AAAA para AAAA-MM-DD
+    
     const dateParts = dataAvaliacao.split('/');
     if (dateParts.length !== 3) {
       Alert.alert('Erro', 'Formato de data inválido. Use DD/MM/AAAA.');
@@ -207,7 +207,7 @@ export default function AvaliacaoFisicaForm() {
           </View>
         )}
 
-        {/* Campo de busca */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Buscar Aluno *</Text>
           <TextInput
@@ -236,7 +236,7 @@ export default function AvaliacaoFisicaForm() {
           )}
         </View>
 
-        {/* Campo data com conversão */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Data da Avaliação *</Text>
           <TextInput
@@ -248,7 +248,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* Peso */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Peso (kg)</Text>
           <TextInput
@@ -259,7 +259,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* Altura */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Altura (m)</Text>
           <TextInput
@@ -270,7 +270,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* IMC calculado automaticamente */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>IMC</Text>
           <Text style={styles.imcText}>
@@ -278,7 +278,7 @@ export default function AvaliacaoFisicaForm() {
           </Text>
         </View>
 
-        {/* Observações */}
+        
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Observações</Text>
           <TextInput
@@ -289,7 +289,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* Botões */}
+        
         <TouchableOpacity style={styles.button} onPress={handleSubmit}>
           <Text style={styles.buttonText}>
             {isEdit ? 'Salvar Alterações' : 'Cadastrar Avaliação'}

@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 100, // Adiciona espaço extra na parte inferior
+    paddingBottom: 100, 
   },
   title: {
     fontSize: 22,

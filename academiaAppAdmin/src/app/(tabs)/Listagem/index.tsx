@@ -43,7 +43,7 @@ export default function Listagem() {
   );
 }
 
-// REUTILIZA OS MESMOS ESTILOS DO CADASTRO
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator // Import ActivityIndicator for loading state
+  ActivityIndicator 
 } from 'react-native';
 import axios from 'axios';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
-import NetInfo from '@react-native-community/netinfo'; // Import NetInfo
-import { syncOfflineData } from '../../../services/syncService'; // Import syncOfflineData
+import NetInfo from '@react-native-community/netinfo'; 
+import { syncOfflineData } from '../../../services/syncService'; 
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -22,10 +22,10 @@ export default function ListarAvaliacaoFisica() {
   const [avaliacoesFisica, setAvaliacoesFisica] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [isOnline, setIsOnline] = useState(true); // State to track network status
+  const [isOnline, setIsOnline] = useState(true); 
   const router = useRouter();
 
-  // Effect to listen for network changes
+  
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -33,13 +33,13 @@ export default function ListarAvaliacaoFisica() {
     return () => unsubscribe();
   }, []);
 
-  // Function to fetch physical evaluations from API
+  
   const fetchAvaliacoes = async () => {
     setLoading(true);
-    // Only attempt to fetch if online
+    
     if (!isOnline) {
       setLoading(false);
-      // In a real offline scenario, you'd load from a local database here
+      
       return;
     }
     try {
@@ -53,31 +53,31 @@ export default function ListarAvaliacaoFisica() {
     }
   };
 
-  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
+  
   useFocusEffect(
     React.useCallback(() => {
-      setLoading(true); // Start loading when screen is focused
+      setLoading(true); 
       NetInfo.fetch().then(state => {
         if (state.isConnected) {
-          // If online, try to sync offline data first
+          
           syncOfflineData().then(() => {
-            fetchAvaliacoes(); // Then fetch fresh data
+            fetchAvaliacoes(); 
           }).catch(syncError => {
             console.error('Erro durante a sincronização:', syncError);
             Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
-            fetchAvaliacoes(); // Still try to load data even if sync fails
+            fetchAvaliacoes(); 
           });
         } else {
-          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          
           Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
-          fetchAvaliacoes(); // Try to fetch, knowing it might fail
+          fetchAvaliacoes(); 
         }
       });
     }, [])
   );
 
   const handleDelete = async (id) => {
-    // Prevent deletion if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
       return;
@@ -96,7 +96,7 @@ export default function ListarAvaliacaoFisica() {
           try {
             await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
             
-            // Optimistically update the UI
+            
             setAvaliacoesFisica(prevAvaliacoes => prevAvaliacoes.filter(avaliacao => avaliacao.id !== id));
             
             Alert.alert("Sucesso", "Avaliação excluída com sucesso!");
@@ -104,7 +104,7 @@ export default function ListarAvaliacaoFisica() {
           } catch (error) {
             console.error("Erro ao excluir avaliação:", error);
             Alert.alert("Erro", "Não foi possível excluir a avaliação. Tente novamente.");
-            fetchAvaliacoes(); // Reload data in case of error
+            fetchAvaliacoes(); 
           } finally {
             setDeletingId(null);
           }
@@ -114,7 +114,7 @@ export default function ListarAvaliacaoFisica() {
   };
 
   const handleEdit = (id) => {
-    // Prevent editing if offline
+    
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
       return;
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
   },
   contentContainer: {
-    paddingBottom: 40, // Add padding to the bottom for better scrolling
+    paddingBottom: 40, 
   },
   title: {
     fontSize: 22,
@@ -346,6 +346,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   disabledButton: {
-    backgroundColor: '#95a5a6', // Gray out disabled buttons
+    backgroundColor: '#95a5a6', 
   },
 });

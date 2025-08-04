@@ -9,6 +9,8 @@ import { Picker } from '@react-native-picker/picker';
 import Constants from 'expo-constants';
 import NetInfo from '@react-native-community/netinfo';
 import { saveOfflineData } from '../../../services/syncService';
+import { fetchAndStoreInstrutores, getStoredInstrutores } from '~/services/instrutorSyncService';
+import { fetchAndStoreTreinos, getStoredTreinos } from '~/services/treinoSyncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -43,7 +45,6 @@ export default function AlunoForm() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => (currentYear - i).toString());
 
-  // Detect network status
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -51,30 +52,31 @@ export default function AlunoForm() {
     return () => unsubscribe();
   }, []);
 
-  // Carrega instrutores
   useEffect(() => {
-    if (isOnline) {
-      axios.get(`${API_BASE_URL}/api/instrutores`)
-        .then(response => setInstrutores(response.data))
-        .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de instrutores."));
-    }
+    const loadAppData = async () => {
+      if (isOnline) {
+        const instrutoresData = await fetchAndStoreInstrutores();
+        if (instrutoresData) setInstrutores(instrutoresData);
+        
+        const treinosData = await fetchAndStoreTreinos();
+        if (treinosData) setTreinos(treinosData);
+      } else {
+        const storedInstrutores = await getStoredInstrutores();
+        setInstrutores(storedInstrutores);
+
+        const storedTreinos = await getStoredTreinos();
+        setTreinos(storedTreinos);
+      }
+    };
+
+    loadAppData();
   }, [isOnline]);
 
-  // Carrega treinos
-  useEffect(() => {
-    if (isOnline) {
-      axios.get(`${API_BASE_URL}/api/treinos`)
-        .then(response => setTreinos(response.data))
-        .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de treinos."));
-    }
-  }, [isOnline]);
-
-  // Se for editar, carrega dados do aluno
   useEffect(() => {
     if (id) {
       loadAlunoData();
     }
-  }, [id]);
+  }, [id, isOnline]);
 
   const loadAlunoData = async () => {
     if (!isOnline) {
@@ -109,7 +111,6 @@ export default function AlunoForm() {
     }
   };
 
-  // Formata data para dd/MM/yyyy
   function formatDate(date: Date): string {
     const d = date.getDate().toString().padStart(2, '0');
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -117,7 +118,6 @@ export default function AlunoForm() {
     return `${d}/${m}/${y}`;
   }
 
-  // Atualiza dataNascimento com base nos selects
   useEffect(() => {
     if (selectedDay && selectedMonth && selectedYear) {
       const day = selectedDay.padStart(2, '0');
@@ -126,7 +126,6 @@ export default function AlunoForm() {
     }
   }, [selectedDay, selectedMonth, selectedYear]);
 
-  // Sugestões nome
   useEffect(() => {
     if (nome.trim().length > 0 && isOnline) {
       axios.get(`${API_BASE_URL}/api/alunos?nome=${nome}`)
@@ -153,7 +152,6 @@ export default function AlunoForm() {
     Keyboard.dismiss();
   };
 
-  // Função para selecionar/deselecionar treino
   const toggleTreinoSelection = (id: number) => {
     setTreinoIds((prev) =>
       prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
@@ -241,7 +239,6 @@ export default function AlunoForm() {
           </View>
         )}
         
-        {/* Nome */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nome *</Text>
           <TextInput
@@ -267,7 +264,6 @@ export default function AlunoForm() {
           )}
         </View>
 
-        {/* Data Nascimento */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Data de Nascimento *</Text>
           <View style={styles.datePickerContainer}>
@@ -321,7 +317,6 @@ export default function AlunoForm() {
           </Text>
         </View>
 
-        {/* Email */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Email *</Text>
           <TextInput
@@ -334,7 +329,6 @@ export default function AlunoForm() {
           />
         </View>
 
-        {/* Telefone */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Telefone *</Text>
           <TextInput
@@ -346,7 +340,6 @@ export default function AlunoForm() {
           />
         </View>
 
-        {/* Endereço */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Endereço</Text>
           <TextInput
@@ -357,7 +350,6 @@ export default function AlunoForm() {
           />
         </View>
 
-        {/* Plano */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Plano</Text>
           <TextInput
@@ -368,7 +360,6 @@ export default function AlunoForm() {
           />
         </View>
 
-        {/* Instrutor */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Instrutor</Text>
           <View style={styles.pickerWrapper}>
@@ -377,7 +368,6 @@ export default function AlunoForm() {
               onValueChange={(itemValue) => setInstrutorId(itemValue)}
               mode="dropdown"
               style={styles.picker}
-              enabled={isOnline}
             >
               <Picker.Item label="Selecione um instrutor" value={null} />
               {instrutores.map(instrutor => (
@@ -387,7 +377,6 @@ export default function AlunoForm() {
           </View>
         </View>
 
-        {/* Treinos (seleção múltipla) */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Treinos (toque para selecionar/deselecionar)</Text>
           <FlatList
@@ -402,7 +391,6 @@ export default function AlunoForm() {
                     selected && styles.treinoItemSelected
                   ]}
                   onPress={() => toggleTreinoSelection(item.id)}
-                  disabled={!isOnline}
                 >
                   <Text style={selected ? styles.treinoTextSelected : styles.treinoText}>
                     {item.nome}

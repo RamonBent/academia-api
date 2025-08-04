@@ -8,7 +8,7 @@ import {
   Alert, 
   TextInput, 
   ActivityIndicator,
-  RefreshControl // Adicionei o import do RefreshControl
+  RefreshControl
 } from 'react-native';
 import axios from 'axios';
 import { useRouter, useFocusEffect } from 'expo-router';
