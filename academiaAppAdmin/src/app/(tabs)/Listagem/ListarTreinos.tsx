@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ export default function ListarTreinos() {
   const loadTreinos = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/treinos`);
+      const response = await fetch(`${API_BASE_URL}/treinos`);
       const data = await response.json();
       setTreinos(data);
     } catch (error) {
@@ -52,7 +52,7 @@ export default function ListarTreinos() {
         onPress: async () => {
           setDeletingId(id);
           try {
-            await fetch(`${API_BASE_URL}/api/treinos/${id}`, {
+            await fetch(`${API_BASE_URL}/treinos/${id}`, {
               method: 'DELETE',
             });
             await loadTreinos();

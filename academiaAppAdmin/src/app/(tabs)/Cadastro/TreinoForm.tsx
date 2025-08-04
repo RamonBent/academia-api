@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -22,53 +23,68 @@ export default function TreinoForm() {
   const [objetivo, setObjetivo] = useState('');
   const [nivel, setNivel] = useState('');
   const [isEdit, setIsEdit] = useState(false);
+  const [loading, setLoading] = useState(false);  // para controlar loading
 
   useEffect(() => {
-    if (id) {
-      axios.get(`${API_BASE_URL}/api/treinos/${id}`)
-        .then(response => {
+    const loadTreino = async () => {
+      if (id) {
+        setLoading(true);
+        try {
+          const response = await axios.get(`${API_BASE_URL}/treinos/${id}`);
           const treino = response.data;
           setNome(treino.nome || '');
           setObjetivo(treino.objetivo || '');
           setNivel(treino.nivel || '');
           setIsEdit(true);
-        })
-        .catch(() => Alert.alert('Erro', 'Erro ao carregar treino para edição.'));
-    }
+        } catch (error) {
+          Alert.alert('Erro', 'Erro ao carregar treino para edição.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    loadTreino();
   }, [id]);
 
   const handleSubmit = async () => {
-    if (nome && objetivo && nivel) {
-      try {
-        const treinoRequest = {
-          nome,
-          objetivo,
-          nivel,
-        };
-
-        if (isEdit) {
-          await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
-          Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
-          router.replace('/(tabs)/Listagem/ListarTreinos');
-        } else {
-          await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
-          Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
-          router.back();
-        }
-      } catch (error) {
-        console.error(error);
-        Alert.alert('Erro', 'Erro ao salvar treino.');
-      }
-    } else {
+    if (!nome || !objetivo || !nivel) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const treinoRequest = { nome, objetivo, nivel };
+
+      if (isEdit) {
+        await axios.put(`${API_BASE_URL}/treinos/${id}`, treinoRequest);
+        Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
+        router.replace('/(tabs)/Listagem/ListarTreinos');
+      } else {
+        await axios.post(`${API_BASE_URL}/treinos`, treinoRequest);
+        Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
+        router.back();
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Erro ao salvar treino. Verifique sua conexão e tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#007bff" />
+        <Text style={{ marginTop: 10, fontSize: 16 }}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>
-        {isEdit ? 'Editar Treino' : 'Cadastrar Novo Treino'}
-      </Text>
+      <Text style={styles.title}>{isEdit ? 'Editar Treino' : 'Cadastrar Novo Treino'}</Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Nome do Treino</Text>
@@ -77,6 +93,7 @@ export default function TreinoForm() {
           placeholder="Ex: Treino A - Força"
           value={nome}
           onChangeText={setNome}
+          editable={!loading}
         />
       </View>
 
@@ -87,6 +104,7 @@ export default function TreinoForm() {
           placeholder="Ex: Hipertrofia, Emagrecimento"
           value={objetivo}
           onChangeText={setObjetivo}
+          editable={!loading}
         />
       </View>
 
@@ -97,16 +115,27 @@ export default function TreinoForm() {
           placeholder="Ex: Iniciante, Intermediário, Avançado"
           value={nivel}
           onChangeText={setNivel}
+          editable={!loading}
         />
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+      <TouchableOpacity
+        style={[styles.submitButton, loading && { opacity: 0.6 }]}
+        onPress={handleSubmit}
+        disabled={loading}
+        accessibilityLabel={isEdit ? 'Salvar alterações do treino' : 'Cadastrar novo treino'}
+      >
         <Text style={styles.submitButtonText}>
           {isEdit ? 'Salvar Alterações' : 'Cadastrar Treino'}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity
+        style={[styles.backButton, loading && { opacity: 0.6 }]}
+        onPress={() => router.back()}
+        disabled={loading}
+        accessibilityLabel="Voltar à tela anterior"
+      >
         <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>

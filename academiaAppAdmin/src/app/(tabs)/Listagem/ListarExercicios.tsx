@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -8,36 +8,60 @@ const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
   const { useFocusEffect } = require('expo-router');
   useFocusEffect(
     React.useCallback(() => {
-      const fetchExercicios = async () => {
-        try {
-          const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
-          setExercicios(response.data);
-        } catch (error) {
-          console.error("Erro ao buscar exercícios da API", error);
-        }
-      };
       fetchExercicios();
     }, [])
   );
 
+  const fetchExercicios = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
+      setExercicios(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar exercícios da API", error);
+      Alert.alert("Erro", "Não foi possível carregar os exercícios.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id) => {
+    setDeletingId(id);
     try {
       await axios.delete(`${API_BASE_URL}/api/exercicios/${id}`);
-      setExercicios((prev) => prev.filter((exercicio) => exercicio.id !== id));
+
+      // Atualiza localmente a lista para resposta rápida
+      setExercicios(prev => prev.filter((exercicio) => exercicio.id !== id));
+
+      Alert.alert("Sucesso", "Exercício excluído com sucesso!");
     } catch (error) {
       console.error("Erro ao deletar exercício", error);
+      Alert.alert("Erro", "Não foi possível excluir o exercício.");
+      fetchExercicios(); // Recarrega para garantir dados atualizados em caso de erro
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const handleEdit = (id) => {
-    router.push({ pathname: '/Cadastro/ExercicioForm', params: { id } });
+    router.push({ pathname: '/Cadastro/ExercicioForm', params: { id: id.toString() } });
   };
+
+  if (loading && exercicios.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando exercícios...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -76,11 +100,24 @@ export default function ListarExercicios() {
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.editButton} onPress={() => handleEdit(exercicio.id)}>
+              <TouchableOpacity
+                style={[styles.editButton, deletingId === exercicio.id && styles.disabledButton]}
+                onPress={() => handleEdit(exercicio.id)}
+                disabled={deletingId === exercicio.id}
+              >
                 <Text style={styles.buttonText}>Editar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(exercicio.id)}>
-                <Text style={styles.buttonText}>Excluir</Text>
+
+              <TouchableOpacity
+                style={[styles.deleteButton, deletingId === exercicio.id && styles.disabledButton]}
+                onPress={() => handleDelete(exercicio.id)}
+                disabled={deletingId === exercicio.id}
+              >
+                {deletingId === exercicio.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -99,6 +136,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f8f8',
     padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#7f8c8d',
+    fontSize: 16,
   },
   title: {
     fontSize: 22,
@@ -162,12 +210,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 5,
   },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
+  },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
   backButton: {
-    backgroundColor: '#3498db', 
+    backgroundColor: '#3498db',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 5,

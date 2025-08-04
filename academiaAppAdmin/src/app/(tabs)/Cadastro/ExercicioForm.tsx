@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 
@@ -19,12 +28,37 @@ export default function ExercicioForm() {
     treinoId: ''
   });
   const [isEdit, setIsEdit] = useState(false);
+  const STORAGE_KEY = `exercicio_${id}`;
 
   useEffect(() => {
     if (id) {
-      axios.get(`${API_BASE_URL}/api/exercicios/${id}`)
-        .then(response => {
-          const exercicio = response.data;
+      fetchExercicioOnlineFirst(id);
+    }
+  }, [id]);
+
+  const fetchExercicioOnlineFirst = async (exercicioId) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/exercicios/${exercicioId}`);
+      const exercicio = response.data;
+
+      setForm({
+        nome: exercicio.nome || '',
+        grupoMuscular: exercicio.grupoMuscular || '',
+        series: exercicio.series?.toString() || '',
+        repeticoes: exercicio.repeticoes?.toString() || '',
+        carga: exercicio.carga?.toString() || '',
+        descansoSegundos: exercicio.descansoSegundos?.toString() || '',
+        treinoId: exercicio.treinoId?.toString() || ''
+      });
+      setIsEdit(true);
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(exercicio));
+    } catch (error) {
+      console.warn('Falha na rede, carregando do cache', error);
+      try {
+        const cached = await AsyncStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          const exercicio = JSON.parse(cached);
           setForm({
             nome: exercicio.nome || '',
             grupoMuscular: exercicio.grupoMuscular || '',
@@ -35,10 +69,15 @@ export default function ExercicioForm() {
             treinoId: exercicio.treinoId?.toString() || ''
           });
           setIsEdit(true);
-        })
-        .catch(() => Alert.alert('Erro', 'Erro ao carregar exercício para edição.'));
+          Alert.alert('Aviso', 'Dados carregados do cache local por falha na conexão.');
+        } else {
+          Alert.alert('Erro', 'Não foi possível carregar o exercício. Sem conexão e sem cache.');
+        }
+      } catch (cacheError) {
+        Alert.alert('Erro', 'Erro ao acessar cache local.');
+      }
     }
-  }, [id]);
+  };
 
   const handleChange = (name, value) => {
     setForm(prev => ({ ...prev, [name]: value }));
@@ -68,6 +107,11 @@ export default function ExercicioForm() {
         await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
         Alert.alert('Sucesso', 'Exercício cadastrado com sucesso!');
         router.back();
+      }
+
+      // Atualiza cache local após salvar
+      if (id) {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(exercicioRequest));
       }
     } catch (error) {
       console.error(error);
@@ -162,8 +206,8 @@ export default function ExercicioForm() {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        style={styles.backButton} 
+      <TouchableOpacity
+        style={styles.backButton}
         onPress={() => router.back()}
       >
         <Text style={styles.backButtonText}>Voltar</Text>

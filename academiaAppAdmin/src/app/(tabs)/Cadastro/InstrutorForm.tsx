@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-
 import Constants from 'expo-constants';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
@@ -16,10 +15,12 @@ export default function InstrutorForm() {
   const [telefone, setTelefone] = useState('');
   const [email, setEmail] = useState('');
   const [isEdit, setIsEdit] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadInstrutor = async () => {
       if (id) {
+        setLoading(true);
         try {
           const response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`);
           if (!response.ok) throw new Error('Instrutor não encontrado');
@@ -33,6 +34,8 @@ export default function InstrutorForm() {
           setIsEdit(true);
         } catch (error) {
           Alert.alert('Erro', 'Erro ao carregar instrutor para edição.');
+        } finally {
+          setLoading(false);
         }
       }
     };
@@ -40,48 +43,55 @@ export default function InstrutorForm() {
   }, [id]);
 
   const handleSubmit = async () => {
-    if (nome && cpf && cref && telefone && email) {
-      try {
-        const instrutorData = {
-          nome,
-          cpf,
-          telefone,
-          email,
-          numeroCREEF: cref,
-        };
-
-        let response;
-        if (isEdit && id) {
-          response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(instrutorData),
-          });
-        } else {
-          response = await fetch(`${API_BASE_URL}/api/instrutores`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(instrutorData),
-          });
-        }
-
-        if (!response.ok) {
-          throw new Error('Erro na requisição à API');
-        }
-
-        Alert.alert('Sucesso', isEdit ? 'Instrutor atualizado!' : 'Instrutor criado!');
-        if (isEdit) {
-          router.replace('/(tabs)/Listagem/ListarInstrutores');
-        } else {
-          router.back();
-        }
-      } catch (error) {
-        Alert.alert('Erro', 'Erro ao salvar instrutor: ' + error.message);
-      }
-    } else {
+    if (!nome || !cpf || !cref || !telefone || !email) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const instrutorData = { nome, cpf, telefone, email, numeroCREEF: cref };
+      let response;
+
+      if (isEdit && id) {
+        response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(instrutorData),
+        });
+      } else {
+        response = await fetch(`${API_BASE_URL}/api/instrutores`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(instrutorData),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      Alert.alert('Sucesso', isEdit ? 'Instrutor atualizado!' : 'Instrutor criado!');
+      if (isEdit) {
+        router.replace('/(tabs)/Listagem/ListarInstrutores');
+      } else {
+        router.back();
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao salvar instrutor. Verifique sua conexão e tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#28a745" />
+        <Text style={{ marginTop: 10, fontSize: 16 }}>Carregando...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -91,12 +101,7 @@ export default function InstrutorForm() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Nome Completo:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o nome do instrutor"
-          value={nome}
-          onChangeText={setNome}
-        />
+        <TextInput style={styles.input} placeholder="Digite o nome do instrutor" value={nome} onChangeText={setNome} />
       </View>
 
       <View style={styles.inputGroup}>
@@ -107,18 +112,13 @@ export default function InstrutorForm() {
           keyboardType="numeric"
           value={cpf}
           onChangeText={setCpf}
-          maxLength={14} // formato com pontos e traço: 000.000.000-00
+          maxLength={14}
         />
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Número CREF:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o CREF"
-          value={cref}
-          onChangeText={setCref}
-        />
+        <TextInput style={styles.input} placeholder="Digite o CREF" value={cref} onChangeText={setCref} />
       </View>
 
       <View style={styles.inputGroup}>
@@ -144,13 +144,11 @@ export default function InstrutorForm() {
         />
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>
-          {isEdit ? 'Salvar Alterações' : 'Salvar Instrutor'}
-        </Text>
+      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+        <Text style={styles.submitButtonText}>{isEdit ? 'Salvar Alterações' : 'Salvar Instrutor'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()} disabled={loading}>
         <Text style={styles.backButtonText}>Voltar para Cadastro</Text>
       </TouchableOpacity>
     </ScrollView>

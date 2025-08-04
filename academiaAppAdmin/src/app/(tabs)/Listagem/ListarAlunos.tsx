@@ -17,7 +17,7 @@ export default function ListarAlunos() {
   const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
+  // Carrega a lista sempre que a tela recebe foco
   const { useFocusEffect } = require('expo-router');
   useFocusEffect(
     React.useCallback(() => {
@@ -41,7 +41,6 @@ export default function ListarAlunos() {
   const fetchAlunos = async () => {
     setLoading(true);
     try {
-      console.log("API_BASE_URL:", API_BASE_URL);
       const response = await axios.get(`${API_BASE_URL}/api/alunos`);
       setAlunos(response.data);
       setAlunosFiltrados(response.data);
@@ -57,14 +56,14 @@ export default function ListarAlunos() {
     setDeletingId(id);
     try {
       await axios.delete(`${API_BASE_URL}/api/alunos/${id}`);
-      
+
+      // Atualiza localmente a lista após exclusão com sucesso
       setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
-      
       Alert.alert("Sucesso", "Aluno excluído com sucesso!");
-      
     } catch (error) {
       console.error("Erro ao excluir aluno:", error);
-      Alert.alert("Erro", "Não foi possível excluir o aluno.");
+      Alert.alert("Erro", "Não foi possível excluir o aluno. Recarregando lista...");
+      // Caso falhe, recarrega a lista da API para manter sincronização
       fetchAlunos();
     } finally {
       setDeletingId(null);

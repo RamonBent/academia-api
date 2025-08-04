@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator 
+} from 'react-native';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -15,7 +17,6 @@ export default function ListarAvaliacaoFisica() {
   const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
   const { useFocusEffect } = require('expo-router');
   useFocusEffect(
     React.useCallback(() => {
@@ -24,8 +25,9 @@ export default function ListarAvaliacaoFisica() {
   );
 
   const fetchAvaliacoes = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/avaliacoes`);
+      const response = await axios.get(`${API_BASE_URL}/avaliacoes`);
       setAvaliacoesFisica(response.data);
     } catch (error) {
       console.error("Erro ao buscar avaliações físicas da API", error);
@@ -38,23 +40,31 @@ export default function ListarAvaliacaoFisica() {
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
-      await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
-      
-      setAvaliacoesFisica(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
-      
-      Alert.alert("Sucesso", "avaliação excluída com sucesso!");
-      
+      await axios.delete(`${API_BASE_URL}/avaliacoes/${id}`);
+
+      // Remove da lista local para update imediato
+      setAvaliacoesFisica(prev => prev.filter(av => av.id !== id));
+
+      Alert.alert("Sucesso", "Avaliação excluída com sucesso!");
     } catch (error) {
       console.error("Erro ao excluir avaliação:", error);
-      Alert.alert("Erro", "Não foi possível excluir a avaliação.");
-      fetchAvaliacoes();
+      Alert.alert("Erro", "Não foi possível excluir a avaliação. Recarregando lista...");
+      fetchAvaliacoes(); // Recarrega para manter sincronização
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleEdit = (id) => {
-    router.push({ pathname: '/Cadastro/AvaliacaoFisicaForm', params: { id } });
+    setEditingId(id);
+    try {
+      router.push({ pathname: '/Cadastro/AvaliacaoFisicaForm', params: { id: id.toString() } });
+    } catch (error) {
+      console.error("Erro ao navegar para edição:", error);
+      Alert.alert("Erro", "Não foi possível abrir a edição");
+    } finally {
+      setEditingId(null);
+    }
   };
 
   const formatAltura = (altura) => {
@@ -76,13 +86,20 @@ export default function ListarAvaliacaoFisica() {
     }
   };
 
+  if (loading && avaliacoesFisica.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando avaliações físicas...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Lista de Avaliações Físicas</Text>
       
-      {loading ? (
-        <Text style={styles.loadingText}>Carregando...</Text>
-      ) : avaliacoesFisica.length === 0 ? (
+      {avaliacoesFisica.length === 0 ? (
         <Text style={styles.emptyText}>Nenhuma avaliação física cadastrada.</Text>
       ) : (
         avaliacoesFisica.map((avaliacao) => (
@@ -124,17 +141,27 @@ export default function ListarAvaliacaoFisica() {
             
             <View style={styles.buttonsContainer}>
               <TouchableOpacity
-                style={[styles.button, styles.editButton]}
+                style={[styles.button, styles.editButton, editingId === avaliacao.id && styles.disabledButton]}
                 onPress={() => handleEdit(avaliacao.id)}
+                disabled={editingId === avaliacao.id}
               >
-                <Text style={styles.buttonText}>Editar</Text>
+                {editingId === avaliacao.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Editar</Text>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.button, styles.deleteButton]}
+                style={[styles.button, styles.deleteButton, deletingId === avaliacao.id && styles.disabledButton]}
                 onPress={() => handleDelete(avaliacao.id)}
+                disabled={deletingId === avaliacao.id}
               >
-                <Text style={styles.buttonText}>Excluir</Text>
+                {deletingId === avaliacao.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -157,17 +184,23 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f8f8f8',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#7f8c8d',
+    fontSize: 16,
+  },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 25,
     textAlign: 'center',
     color: '#2c3e50',
-  },
-  loadingText: {
-    textAlign: 'center',
-    marginTop: 20,
-    color: '#7f8c8d',
   },
   emptyText: {
     textAlign: 'center',
@@ -224,6 +257,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     minWidth: 80,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
   },
   buttonText: {
     color: 'white',
@@ -234,6 +269,9 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#e74c3c',
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
   },
   backButton: {
     backgroundColor: '#3498db',

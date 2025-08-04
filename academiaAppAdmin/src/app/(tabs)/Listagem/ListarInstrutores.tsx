@@ -18,7 +18,6 @@ export default function ListarInstrutores() {
   const [editingId, setEditingId] = useState(null);
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
   const { useFocusEffect } = require('expo-router');
   useFocusEffect(
     React.useCallback(() => {
@@ -57,15 +56,16 @@ export default function ListarInstrutores() {
     setDeletingId(id);
     try {
       await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
-      
-      setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
-      
+
+      // Atualiza localmente para resposta instantânea
+      setInstrutores(prev => prev.filter(instrutor => instrutor.id !== id));
+      setInstrutoresFiltrados(prev => prev.filter(instrutor => instrutor.id !== id));
+
       Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
-      
     } catch (error) {
       console.error("Erro ao excluir instrutor:", error);
       Alert.alert("Erro", "Não foi possível excluir o instrutor.");
-      fetchInstrutores();
+      fetchInstrutores(); 
     } finally {
       setDeletingId(null);
     }

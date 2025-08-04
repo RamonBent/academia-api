@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,10 +14,9 @@ import {
 import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
-
 export default function AvaliacaoFisicaForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -35,33 +33,73 @@ export default function AvaliacaoFisicaForm() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Carrega dados para edição
+  const STORAGE_KEYS = {
+    avaliacao: `avaliacao_${id}`,
+    suggestionsPrefix: 'alunos_suggestions_',
+  };
+
+  const safeParseFloat = (str: string) => {
+    if (!str) return 0;
+    return parseFloat(str.replace(',', '.'));
+  };
+
   useEffect(() => {
-    if (id) {
-      axios.get(`${API_BASE_URL}/api/avaliacoes/${id}`)
-        .then(response => {
-          const data = response.data;
-          setAvaliacao({
-            dataAvaliacao: data.dataAvaliacao ? data.dataAvaliacao.split('-').reverse().join('/') : '',
-            peso: data.peso?.toString() || '',
-            altura: data.altura?.toString() || '',
-            imc: data.imc?.toString() || '',
-            observacoes: data.observacoes || '',
-            alunoId: data.alunoId?.toString() || '',
-          });
-          setSearchTerm(data.alunoNome || '');
+    if (!id) return;
+
+    const loadAvaliacao = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/avaliacoes/${id}`);
+        const data = response.data;
+        const aval = {
+          dataAvaliacao: data.dataAvaliacao ? data.dataAvaliacao.split('-').reverse().join('/') : '',
+          peso: data.peso?.toString() || '',
+          altura: data.altura?.toString() || '',
+          imc: data.imc?.toString() || '',
+          observacoes: data.observacoes || '',
+          alunoId: data.alunoId?.toString() || '',
+        };
+        setAvaliacao(aval);
+        setSearchTerm(data.alunoNome || '');
+        setIsEdit(true);
+        await AsyncStorage.setItem(STORAGE_KEYS.avaliacao, JSON.stringify(aval));
+      } catch (error) {
+        // fallback cache
+        const cache = await AsyncStorage.getItem(STORAGE_KEYS.avaliacao);
+        if (cache) {
+          const aval = JSON.parse(cache);
+          setAvaliacao(aval);
+          setSearchTerm(aval.alunoNome || ''); // alunoNome pode não estar, ajuste se precisar
           setIsEdit(true);
-        })
-        .catch(() => Alert.alert('Erro', 'Erro ao carregar avaliação para edição.'));
-    }
+          Alert.alert('Aviso', 'Dados carregados do cache local devido a falha na rede.');
+        } else {
+          Alert.alert('Erro', 'Erro ao carregar avaliação para edição e nenhum cache disponível.');
+        }
+      }
+    };
+
+    loadAvaliacao();
   }, [id]);
 
   const buscarAlunos = async (nome: string) => {
+    if (!nome) {
+      setSuggestions([]);
+      return;
+    }
+    const cacheKey = STORAGE_KEYS.suggestionsPrefix + nome.toLowerCase();
+
     try {
       const response = await axios.get(`${API_BASE_URL}/api/alunos/buscar?nome=${nome}`);
       setSuggestions(response.data);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(response.data));
     } catch (error) {
-      console.error('Erro ao buscar alunos', error);
+      const cache = await AsyncStorage.getItem(cacheKey);
+      if (cache) {
+        setSuggestions(JSON.parse(cache));
+        Alert.alert('Aviso', 'Sugestões carregadas do cache local devido a falha na rede.');
+      } else {
+        setSuggestions([]);
+        console.error('Erro ao buscar alunos e não há cache disponível', error);
+      }
     }
   };
 
@@ -69,8 +107,8 @@ export default function AvaliacaoFisicaForm() {
     let updated = { ...avaliacao, [field]: value };
 
     if (field === 'peso' || field === 'altura') {
-      const peso = parseFloat(field === 'peso' ? value : updated.peso);
-      const altura = parseFloat(field === 'altura' ? value : updated.altura);
+      const peso = field === 'peso' ? safeParseFloat(value) : safeParseFloat(updated.peso);
+      const altura = field === 'altura' ? safeParseFloat(value) : safeParseFloat(updated.altura);
 
       if (peso > 0 && altura > 0) {
         updated.imc = (peso / (altura * altura)).toFixed(2);
@@ -107,34 +145,41 @@ export default function AvaliacaoFisicaForm() {
   };
 
   const handleSubmit = async () => {
-    const { alunoId, peso, altura, imc } = avaliacao;
+    const { alunoId, peso, altura, imc, dataAvaliacao } = avaliacao;
 
     if (!alunoId) {
       Alert.alert('Erro', 'Selecione um aluno');
+      return;
+    }
+    if (!dataAvaliacao) {
+      Alert.alert('Erro', 'Informe a data da avaliação');
       return;
     }
 
     try {
       const avaliacaoRequest = {
         ...avaliacao,
-        peso: parseFloat(peso),
-        altura: parseFloat(altura),
+        peso: safeParseFloat(peso),
+        altura: safeParseFloat(altura),
         imc: parseFloat(imc),
         alunoId: parseInt(alunoId),
-        dataAvaliacao: avaliacao.dataAvaliacao.split('/').reverse().join('-'),
+        dataAvaliacao: dataAvaliacao.includes('/') 
+          ? dataAvaliacao.split('/').reverse().join('-')
+          : dataAvaliacao,
       };
       if (isEdit) {
-        await axios.put(`${API_BASE_URL}/api/avaliacoes/${id}`, avaliacaoRequest);
+        await axios.put(`${API_BASE_URL}/avaliacoes/${id}`, avaliacaoRequest);
         Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
+        await AsyncStorage.setItem(STORAGE_KEYS.avaliacao, JSON.stringify(avaliacaoRequest));
         router.replace('/(tabs)/Listagem/ListarAvaliacaoFisica');
       } else {
-        await axios.post(`${API_BASE_URL}/api/avaliacoes`, avaliacaoRequest);
+        await axios.post(`${API_BASE_URL}/avaliacoes`, avaliacaoRequest);
         Alert.alert('Sucesso', 'Avaliação cadastrada com sucesso!');
         router.back();
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('Erro ao cadastrar avaliação');
+      Alert.alert('Erro', 'Erro ao salvar avaliação');
     }
   };
 
@@ -143,7 +188,7 @@ export default function AvaliacaoFisicaForm() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Cadastro de Avaliação Física</Text>
 
-        {/* Campo de busca */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Buscar Aluno *</Text>
           <TextInput
@@ -151,6 +196,8 @@ export default function AvaliacaoFisicaForm() {
             placeholder="Digite o nome do aluno"
             value={searchTerm}
             onChangeText={handleSearchTextChange}
+            autoCorrect={false}
+            autoCapitalize="words"
           />
           {showSuggestions && suggestions.length > 0 && (
             <View style={styles.suggestionsContainer}>
@@ -171,18 +218,22 @@ export default function AvaliacaoFisicaForm() {
           )}
         </View>
 
-        {/* Campo data com conversão */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Data da Avaliação *</Text>
           <TextInput
             style={styles.input}
             placeholder="DD/MM/AAAA"
             keyboardType="numeric"
+            value={avaliacao.dataAvaliacao.includes('-') 
+              ? avaliacao.dataAvaliacao.split('-').reverse().join('/')
+              : avaliacao.dataAvaliacao
+            }
             onChangeText={(text) => handleChange('dataAvaliacao', text)}
           />
         </View>
 
-        {/* Peso */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Peso (kg)</Text>
           <TextInput
@@ -193,7 +244,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* Altura */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Altura (m)</Text>
           <TextInput
@@ -204,7 +255,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* IMC calculado automaticamente */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>IMC</Text>
           <Text style={styles.imcText}>
@@ -212,7 +263,7 @@ export default function AvaliacaoFisicaForm() {
           </Text>
         </View>
 
-        {/* Observações */}
+        {}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Observações</Text>
           <TextInput
@@ -223,7 +274,7 @@ export default function AvaliacaoFisicaForm() {
           />
         </View>
 
-        {/* Botões */}
+        {}
         <TouchableOpacity style={styles.button} onPress={handleSubmit}>
           <Text style={styles.buttonText}>Salvar Avaliação</Text>
         </TouchableOpacity>
