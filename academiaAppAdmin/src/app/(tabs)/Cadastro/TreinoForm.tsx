@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Picker
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
@@ -22,9 +23,21 @@ export default function TreinoForm() {
 
   const [nome, setNome] = useState('');
   const [objetivo, setObjetivo] = useState('');
-  const [nivel, setNivel] = useState('');
+  const [nivel, setNivel] = useState('iniciante');
+  const [genero, setGenero] = useState('masculino');
   const [isEdit, setIsEdit] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+
+  const niveis = [
+    { label: 'Iniciante', value: 'iniciante' },
+    { label: 'Intermediário', value: 'intermediario' },
+    { label: 'Avançado', value: 'avancado' }
+  ];
+
+  const generos = [
+    { label: 'Masculino', value: 'masculino' },
+    { label: 'Feminino', value: 'feminino' }
+  ];
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -46,7 +59,8 @@ export default function TreinoForm() {
       const treino = response.data;
       setNome(treino.nome || '');
       setObjetivo(treino.objetivo || '');
-      setNivel(treino.nivel || '');
+      setNivel(treino.nivel || 'iniciante');
+      setGenero(treino.genero || 'masculino');
       setIsEdit(true);
     } catch (error) {
       Alert.alert('Erro', 'Erro ao carregar treino para edição.');
@@ -54,15 +68,16 @@ export default function TreinoForm() {
   };
 
   const handleSubmit = async () => {
-    if (!nome || !objetivo || !nivel) {
+    if (!nome || !objetivo) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
     const treinoRequest = {
-      nome,
+      nome: `${nome} - ${genero === 'masculino' ? 'M' : 'F'}`,
       objetivo,
       nivel,
+      genero
     };
 
     try {
@@ -131,10 +146,56 @@ export default function TreinoForm() {
         <Text style={styles.label}>Nome do Treino</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Treino A - Força"
+          placeholder="Ex: Treino A"
           value={nome}
           onChangeText={setNome}
         />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Gênero</Text>
+        <View style={styles.pickerContainer}>
+          {generos.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[
+                styles.genderButton,
+                genero === item.value && styles.selectedGenderButton
+              ]}
+              onPress={() => setGenero(item.value)}
+            >
+              <Text style={[
+                styles.genderButtonText,
+                genero === item.value && styles.selectedGenderButtonText
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Nível</Text>
+        <View style={styles.pickerContainer}>
+          {niveis.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[
+                styles.levelButton,
+                nivel === item.value && styles.selectedLevelButton
+              ]}
+              onPress={() => setNivel(item.value)}
+            >
+              <Text style={[
+                styles.levelButtonText,
+                nivel === item.value && styles.selectedLevelButtonText
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
@@ -144,16 +205,6 @@ export default function TreinoForm() {
           placeholder="Ex: Hipertrofia, Emagrecimento"
           value={objetivo}
           onChangeText={setObjetivo}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nível</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Iniciante, Intermediário, Avançado"
-          value={nivel}
-          onChangeText={setNivel}
         />
       </View>
 
@@ -197,6 +248,45 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
     color: '#000',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  genderButton: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  selectedGenderButton: {
+    backgroundColor: '#007bff',
+  },
+  genderButtonText: {
+    color: '#333',
+  },
+  selectedGenderButtonText: {
+    color: '#fff',
+  },
+  levelButton: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  selectedLevelButton: {
+    backgroundColor: '#28a745',
+  },
+  levelButtonText: {
+    color: '#333',
+  },
+  selectedLevelButtonText: {
+    color: '#fff',
   },
   submitButton: {
     backgroundColor: '#007bff',
