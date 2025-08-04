@@ -35,7 +35,7 @@ export default ({ config }: ConfigContext): any => ({
     router: {
       unstable_src: "./app",
     },
-    API_BASE_URL: "http://192.168.1.106:8080", // seu backend local
+    API_BASE_URL: "http://192.168.1.102:8080", // seu backend local
   },
   plugins: ["expo-router"],
 });

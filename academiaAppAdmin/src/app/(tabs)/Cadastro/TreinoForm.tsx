@@ -7,9 +7,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  Picker
+  Alert
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import NetInfo from '@react-native-community/netinfo';

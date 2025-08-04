@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import { Picker } from '@react-native-picker/picker';
@@ -112,78 +122,93 @@ export default function ExercicioForm() {
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>
-        {isEdit ? 'Editar Exercício' : 'Cadastrar Novo Exercício'}
-      </Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>
+          {isEdit ? 'Editar Exercício' : 'Cadastrar Novo Exercício'}
+        </Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nome*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.nome}
-          onChangeText={(text) => handleChange('nome', text)}
-          placeholder="Nome do exercício"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Nome*</Text>
+          <TextInput
+            style={styles.input}
+            value={form.nome}
+            onChangeText={(text) => handleChange('nome', text)}
+            placeholder="Nome do exercício"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Grupo Muscular*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.grupoMuscular}
-          onChangeText={(text) => handleChange('grupoMuscular', text)}
-          placeholder="Ex: Peito, Costas, Pernas"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Grupo Muscular*</Text>
+          <TextInput
+            style={styles.input}
+            value={form.grupoMuscular}
+            onChangeText={(text) => handleChange('grupoMuscular', text)}
+            placeholder="Ex: Peito, Costas, Pernas"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Séries*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.series}
-          onChangeText={(text) => handleChange('series', text)}
-          placeholder="Número de séries"
-          keyboardType="numeric"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Séries*</Text>
+          <TextInput
+            style={styles.input}
+            value={form.series}
+            onChangeText={(text) => handleChange('series', text)}
+            placeholder="Número de séries"
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Repetições*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.repeticoes}
-          onChangeText={(text) => handleChange('repeticoes', text)}
-          placeholder="Número de repetições"
-          keyboardType="numeric"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Repetições*</Text>
+          <TextInput
+            style={styles.input}
+            value={form.repeticoes}
+            onChangeText={(text) => handleChange('repeticoes', text)}
+            placeholder="Número de repetições"
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Carga (kg)</Text>
-        <TextInput
-          style={styles.input}
-          value={form.carga}
-          onChangeText={(text) => handleChange('carga', text)}
-          placeholder="Peso em kg (opcional)"
-          keyboardType="numeric"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Carga (kg)</Text>
+          <TextInput
+            style={styles.input}
+            value={form.carga}
+            onChangeText={(text) => handleChange('carga', text)}
+            placeholder="Peso em kg (opcional)"
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Descanso (segundos)*</Text>
-        <TextInput
-          style={styles.input}
-          value={form.descansoSegundos}
-          onChangeText={(text) => handleChange('descansoSegundos', text)}
-          placeholder="Tempo de descanso entre séries"
-          keyboardType="numeric"
-        />
-      </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Descanso (segundos)*</Text>
+          <TextInput
+            style={styles.input}
+            value={form.descansoSegundos}
+            onChangeText={(text) => handleChange('descansoSegundos', text)}
+            placeholder="Tempo de descanso entre séries"
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>ID do Treino*</Text>
-        <View style={styles.pickerWrapper}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>ID do Treino*</Text>
+          <View style={styles.pickerWrapper}>
             <Picker
               selectedValue={form.treinoId}
               onValueChange={(itemValue) => handleChange('treinoId', itemValue)}
@@ -196,37 +221,41 @@ export default function ExercicioForm() {
               ))}
             </Picker>
           </View>
-      </View>
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>
-          {isEdit ? 'Salvar Alterações' : 'Salvar Exercício'}
-        </Text>
-      </TouchableOpacity>
-
-      {!isOnline && !isEdit && (
-        <View style={{ backgroundColor: '#ffc107', padding: 10, borderRadius: 5, marginTop: 10 }}>
-          <Text style={{ color: '#856404', textAlign: 'center' }}>
-            Você está offline. O exercício será salvo localmente e sincronizado quando estiver online.
-          </Text>
         </View>
-      )}
 
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => router.back()}
-      >
-        <Text style={styles.backButtonText}>Voltar</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.submitButtonText}>
+            {isEdit ? 'Salvar Alterações' : 'Salvar Exercício'}
+          </Text>
+        </TouchableOpacity>
+
+        {!isOnline && !isEdit && (
+          <View style={{ backgroundColor: '#ffc107', padding: 10, borderRadius: 5, marginTop: 10 }}>
+            <Text style={{ color: '#856404', textAlign: 'center' }}>
+              Você está offline. O exercício será salvo localmente e sincronizado quando estiver online.
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f8f8f8',
+  },
+  scrollContainer: {
+    padding: 20,
+    paddingBottom: 40, // Espaço extra no final para evitar que o teclado cubra os botões
   },
   title: {
     fontSize: 22,
@@ -280,6 +309,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
-  pickerWrapper: { backgroundColor: '#e0e0e0', borderRadius: 8, overflow: 'hidden' },
-  picker: { height: 50, width: '100%' },
+  pickerWrapper: { 
+    backgroundColor: '#e0e0e0', 
+    borderRadius: 8, 
+    overflow: 'hidden' 
+  },
+  picker: { 
+    height: 50, 
+    width: '100%' 
+  },
 });
