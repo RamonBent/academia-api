@@ -58,7 +58,7 @@ Para rodar o projeto localmente, siga os passos abaixo:
 1.  **Clone o repositório:**
 
     ```bash
-    git clone https://github.com/dolthub/dolt
+    git clone https://github.com/RamonBent/academia-api
     ```
 
 2.  **Configure o Backend:**
