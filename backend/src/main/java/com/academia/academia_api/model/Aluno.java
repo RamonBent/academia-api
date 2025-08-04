@@ -1,11 +1,11 @@
 package com.academia.academia_api.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -14,6 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Aluno {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -24,20 +25,24 @@ public class Aluno {
 
     private String telefone;
 
-    @Column(unique = true)
     private String email;
 
     private String endereco;
 
     private String plano;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "instrutor_id")
     private Instrutor instrutor;
 
-    @OneToMany(mappedBy = "aluno")
-    private List<AvaliacaoFisica> avaliacoes;
+    @JsonManagedReference  // evita loop na serialização
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "aluno_treino",
+            joinColumns = @JoinColumn(name = "aluno_id"),
+            inverseJoinColumns = @JoinColumn(name = "treino_id"))
+    private List<Treino> treinos = new ArrayList<>();
 
-    @OneToMany(mappedBy = "aluno")
-    private List<Treino> treinos;
+    @JsonManagedReference
+    @OneToMany(mappedBy = "aluno", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AvaliacaoFisica> avaliacoes = new ArrayList<>();
 }

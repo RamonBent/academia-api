@@ -1,142 +1,209 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
-const TREINO_STORAGE_KEY = '@myApp:treinos';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData } from '../../../services/syncService';
+
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function TreinoForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [alunoId, setAlunoId] = useState('');
-  const [instrutorId, setInstrutorId] = useState('');
-  const [nomeTreino, setNomeTreino] = useState('');
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
+
+  const [nome, setNome] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [nivel, setNivel] = useState('iniciante');
+  const [genero, setGenero] = useState('masculino');
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  const niveis = [
+    { label: 'Iniciante', value: 'iniciante' },
+    { label: 'Intermediário', value: 'intermediario' },
+    { label: 'Avançado', value: 'avancado' }
+  ];
+
+  const generos = [
+    { label: 'Masculino', value: 'masculino' },
+    { label: 'Feminino', value: 'feminino' }
+  ];
 
   useEffect(() => {
-    const loadTreino = async () => {
-      if (id) {
-        try {
-          const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-          if (stored) {
-            const treinos = JSON.parse(stored);
-            const treino = treinos.find((a) => a.id === id);
-            if (treino) {
-              setAlunoId(treino.alunoId);
-              setInstrutorId(treino.instrutorId);
-              setNomeTreino(treino.nomeTreino);
-              setDataInicio(treino.dataInicio);
-              setDataFim(treino.dataFim);
-              setObjetivo(treino.objetivo);
-              setIsEdit(true);
-            }
-          }
-        } catch (error) {
-          Alert.alert('Erro', 'Erro ao carregar treino para edição.');
-        }
-      }
-    };
-    loadTreino();
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      loadTreinoData();
+    }
   }, [id]);
 
+  const loadTreinoData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/treinos/${id}`);
+      const treino = response.data;
+      setNome(treino.nome || '');
+      setObjetivo(treino.objetivo || '');
+      setNivel(treino.nivel || 'iniciante');
+      setGenero(treino.genero || 'masculino');
+      setIsEdit(true);
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao carregar treino para edição.');
+    }
+  };
+
   const handleSubmit = async () => {
-    if (alunoId && instrutorId && nomeTreino && dataInicio && dataFim && objetivo) {
+    if (!nome || !objetivo) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    const treinoRequest = {
+      nome: `${nome} - ${genero === 'masculino' ? 'M' : 'F'}`,
+      objetivo,
+      nivel,
+      genero
+    };
+
+    try {
+      if (isEdit) {
+        await handleEdit(treinoRequest);
+      } else {
+        await handleCreate(treinoRequest);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar o treino.');
+    }
+  };
+
+  const handleEdit = async (treinoRequest: any) => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
+
+    await axios.put(`${API_BASE_URL}/api/treinos/${id}`, treinoRequest);
+    Alert.alert('Sucesso', 'Treino atualizado com sucesso.');
+    router.replace('/(tabs)/Listagem/ListarTreinos');
+  };
+
+  const handleCreate = async (treinoRequest: any) => {
+    if (isOnline) {
       try {
-        const stored = await AsyncStorage.getItem(TREINO_STORAGE_KEY);
-        let treinos = stored ? JSON.parse(stored) : [];
-        if (isEdit) {
-          treinos = treinos.map((a) =>
-            a.id === id
-              ? { ...a, alunoId, instrutorId, nomeTreino, dataInicio, dataFim, objetivo }
-              : a
-          );
-        } else {
-          treinos.push({
-            id: Date.now().toString(),
-            alunoId,
-            instrutorId,
-            nomeTreino,
-            dataInicio,
-            dataFim,
-            objetivo,
-          });
-        }
-        await AsyncStorage.setItem(TREINO_STORAGE_KEY, JSON.stringify(treinos));
+        await axios.post(`${API_BASE_URL}/api/treinos`, treinoRequest);
+        Alert.alert('Sucesso', 'Treino cadastrado com sucesso.');
         router.back();
       } catch (error) {
-        Alert.alert('Erro', 'Erro ao salvar treino.');
+        await saveOfflineAndAlert(treinoRequest);
       }
     } else {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      await saveOfflineAndAlert(treinoRequest);
+    }
+  };
+
+  const saveOfflineAndAlert = async (treinoRequest: any) => {
+    const success = await saveOfflineData(treinoRequest, 'treinos');
+    if (success) {
+      Alert.alert(
+        'Offline Mode',
+        'Treino salvo localmente. Será sincronizado quando você estiver online.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } else {
+      Alert.alert('Erro', 'Falha ao salvar o treino localmente.');
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>
-        {isEdit ? 'Editar Treino' : 'Formulário de Cadastro de Treino'}
+        {isEdit ? 'Editar Treino' : 'Cadastrar Novo Treino'}
       </Text>
 
+      {!isOnline && !isEdit && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados serão sincronizados quando a conexão for restaurada.</Text>
+        </View>
+      )}
+
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>ID do Aluno:</Text>
+        <Text style={styles.label}>Nome do Treino</Text>
         <TextInput
           style={styles.input}
-          placeholder="Digite o ID do aluno"
-          value={alunoId}
-          onChangeText={setAlunoId}
+          placeholder="Ex: Treino A"
+          value={nome}
+          onChangeText={setNome}
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>ID do Instrutor:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o ID do instrutor"
-          value={instrutorId}
-          onChangeText={setInstrutorId}
-        />
+        <Text style={styles.label}>Gênero</Text>
+        <View style={styles.pickerContainer}>
+          {generos.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[
+                styles.genderButton,
+                genero === item.value && styles.selectedGenderButton
+              ]}
+              onPress={() => setGenero(item.value)}
+            >
+              <Text style={[
+                styles.genderButtonText,
+                genero === item.value && styles.selectedGenderButtonText
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nome do Treino:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Treino A - Força"
-          value={nomeTreino}
-          onChangeText={setNomeTreino}
-        />
+        <Text style={styles.label}>Nível</Text>
+        <View style={styles.pickerContainer}>
+          {niveis.map((item) => (
+            <TouchableOpacity
+              key={item.value}
+              style={[
+                styles.levelButton,
+                nivel === item.value && styles.selectedLevelButton
+              ]}
+              onPress={() => setNivel(item.value)}
+            >
+              <Text style={[
+                styles.levelButtonText,
+                nivel === item.value && styles.selectedLevelButtonText
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Data de Início (DD/MM/AAAA):</Text>
+        <Text style={styles.label}>Objetivo</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: 01/01/2023"
-          keyboardType="numbers-and-punctuation"
-          value={dataInicio}
-          onChangeText={setDataInicio}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Data de Fim (DD/MM/AAAA):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 31/01/2023"
-          keyboardType="numbers-and-punctuation"
-          value={dataFim}
-          onChangeText={setDataFim}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Objetivo do Treino:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Ganho de massa, Emagrecimento"
+          placeholder="Ex: Hipertrofia, Emagrecimento"
           value={objetivo}
           onChangeText={setObjetivo}
         />
@@ -144,12 +211,12 @@ export default function TreinoForm() {
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitButtonText}>
-          {isEdit ? 'Salvar Alterações' : 'Salvar Treino'}
+          {isEdit ? 'Salvar Alterações' : 'Cadastrar Treino'}
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Cadastro</Text>
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -181,20 +248,53 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     fontSize: 16,
-    width: '100%',
+    color: '#000',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  genderButton: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  selectedGenderButton: {
+    backgroundColor: '#007bff',
+  },
+  genderButtonText: {
+    color: '#333',
+  },
+  selectedGenderButtonText: {
+    color: '#fff',
+  },
+  levelButton: {
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  selectedLevelButton: {
+    backgroundColor: '#28a745',
+  },
+  levelButtonText: {
+    color: '#333',
+  },
+  selectedLevelButtonText: {
+    color: '#fff',
   },
   submitButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#007bff',
     paddingVertical: 15,
-    paddingHorizontal: 20,
     borderRadius: 8,
     marginTop: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   submitButtonText: {
     color: 'white',
@@ -204,13 +304,22 @@ const styles = StyleSheet.create({
   backButton: {
     backgroundColor: '#6c757d',
     paddingVertical: 10,
-    paddingHorizontal: 15,
     borderRadius: 5,
-    marginTop: 20,
-    alignSelf: 'center',
+    marginTop: 15,
+    alignItems: 'center',
   },
   backButtonText: {
     color: 'white',
     fontSize: 16,
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });

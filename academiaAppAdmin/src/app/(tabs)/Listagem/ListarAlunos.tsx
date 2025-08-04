@@ -1,147 +1,409 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { 
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
+} from 'react-native';
+import axios from 'axios';
+import { useRouter, useFocusEffect } from 'expo-router'; 
+import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo'; 
+import { syncOfflineData } from '../../../services/syncService'; 
 
-const STUDENTS_STORAGE_KEY = '@myApp:students';
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarAlunos() {
   const [alunos, setAlunos] = useState([]);
+  const [filtro, setFiltro] = useState('');
+  const [alunosFiltrados, setAlunosFiltrados] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); 
   const router = useRouter();
 
+  
   useEffect(() => {
-    const loadAlunos = async () => {
-      try {
-        const storedAlunos = await AsyncStorage.getItem(STUDENTS_STORAGE_KEY);
-        if (storedAlunos !== null) {
-          setAlunos(JSON.parse(storedAlunos));
-        }
-      } catch (error) {
-        console.error("Error loading alunos from AsyncStorage", error);
-      }
-    };
-
-    loadAlunos();
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleDelete = async (id) => {
-    const filtered = alunos.filter((aluno) => aluno.id !== id);
-    setAlunos(filtered);
-    await AsyncStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(filtered));
+  
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoading(true); 
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          
+          syncOfflineData().then(() => {
+            fetchAlunos(); 
+          }).catch(syncError => {
+            console.error('Erro durante a sincronização:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
+            fetchAlunos(); 
+          });
+        } else {
+          
+          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
+          fetchAlunos(); 
+        }
+      });
+    }, [])
+  );
+
+  
+  useEffect(() => {
+    if (filtro.trim() === '') {
+      setAlunosFiltrados(alunos);
+    } else {
+      const filtroMinusculo = filtro.toLowerCase();
+      setAlunosFiltrados(
+        alunos.filter(aluno => 
+          aluno.nome && aluno.nome.toLowerCase().includes(filtroMinusculo)
+        )
+      );
+    }
+  }, [filtro, alunos]);
+
+  const fetchAlunos = async () => {
+    setLoading(true);
+    
+    if (!isOnline) {
+      setLoading(false);
+      
+      return; 
+    }
+    try {
+      console.log("API_BASE_URL:", API_BASE_URL);
+      const response = await axios.get(`${API_BASE_URL}/api/alunos`);
+      setAlunos(response.data);
+      setAlunosFiltrados(response.data);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar a lista de alunos. Verifique sua conexão.");
+      console.error("Erro ao carregar alunos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteAluno = async (id) => {
+    
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
+      return;
+    }
+
+    Alert.alert('Confirmação', 'Deseja realmente excluir este aluno?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(id);
+          try {
+            await axios.delete(`${API_BASE_URL}/api/alunos/${id}`);
+            
+            
+            setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
+            
+            Alert.alert("Sucesso", "Aluno excluído com sucesso!");
+            
+          } catch (error) {
+            console.error("Erro ao excluir aluno:", error);
+            Alert.alert("Erro", "Não foi possível excluir o aluno. Tente novamente.");
+            fetchAlunos(); 
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const handleEdit = (id) => {
-    router.push({ pathname: '/Cadastro/AlunoForm', params: { id } });
+    
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
+    setEditingId(id);
+    try {
+      router.push({ 
+        pathname: '/Cadastro/AlunoForm', 
+        params: { id: id.toString() }
+      });
+    } catch (error) {
+      console.error("Erro ao navegar para edição:", error);
+      Alert.alert("Erro", "Não foi possível abrir a edição");
+    } finally {
+      setEditingId(null);
+    }
   };
 
+  function calcularIdade(dataNascimentoISO) {
+    if (!dataNascimentoISO) return 'N/A';
+    
+    const hoje = new Date();
+    const nascimento = new Date(dataNascimentoISO);
+    
+    if (isNaN(nascimento.getTime())) return 'Data inválida';
+    
+    let idade = hoje.getFullYear() - nascimento.getFullYear();
+    const mes = hoje.getMonth() - nascimento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+      idade--;
+    }
+    return `${idade} anos`;
+  }
+
+  if (loading && alunos.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando alunos...</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Alunos</Text>
-      {alunos.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum aluno cadastrado.</Text>
+
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+        </View>
+      )}
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Pesquisar aluno pelo nome"
+        placeholderTextColor="#95a5a6"
+        value={filtro}
+        onChangeText={setFiltro}
+        autoCapitalize="words"
+        editable={isOnline} 
+      />
+
+      {alunosFiltrados.length === 0 ? (
+        <Text style={styles.emptyText}>
+          {filtro ? 'Nenhum aluno encontrado com este nome.' : 'Nenhum aluno cadastrado.'}
+        </Text>
       ) : (
-        alunos.map((aluno, index) => (
-          <View key={aluno.id || index} style={styles.cardRow}>
-            <View style={styles.card}>
-              <Text style={styles.name}>{aluno.nome || 'Nome não informado'}</Text>
-              <Text>Idade: {aluno.idade}</Text>
-              <Text>Email: {aluno.email}</Text>
-              <Text>Telefone: {aluno.telefone}</Text>
+        alunosFiltrados.map((aluno) => (
+          <View key={aluno.id} style={styles.cardContainer}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>{aluno.nome || 'Nome não informado'}</Text>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Idade:</Text>
+                <Text>{aluno.dataNascimento ? calcularIdade(aluno.dataNascimento) : 'Não informada'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Email:</Text>
+                <Text>{aluno.email || '-'}</Text>
+              </View>
+              
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Telefone:</Text>
+                <Text>{aluno.telefone || '-'}</Text>
+              </View>
             </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => handleEdit(aluno.id)}
-            >
-              <Text style={styles.editButtonText}>Editar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDelete(aluno.id)}
-            >
-              <Text style={styles.deleteButtonText}>Excluir</Text>
-            </TouchableOpacity>
+            
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[styles.button, styles.editButton, editingId === aluno.id && styles.disabledButton]}
+                onPress={() => handleEdit(aluno.id)}
+                disabled={editingId === aluno.id || !isOnline} 
+              >
+                {editingId === aluno.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Editar</Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, styles.deleteButton, deletingId === aluno.id && styles.disabledButton]}
+                onPress={() => deleteAluno(aluno.id)}
+                disabled={deletingId === aluno.id || !isOnline} 
+              >
+                {deletingId === aluno.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Listagem</Text>
+
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => router.back()}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.backButtonText}>Voltar</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
+function calcularIdade(dataNascimentoISO) {
+  if (!dataNascimentoISO) return 'N/A';
+  
+  const hoje = new Date();
+  const nascimento = new Date(dataNascimentoISO);
+  
+  if (isNaN(nascimento.getTime())) return 'Data inválida';
+  
+  let idade = hoje.getFullYear() - nascimento.getFullYear();
+  const mes = hoje.getMonth() - nascimento.getMonth();
+
+  if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+    idade--;
+  }
+  return `${idade} anos`;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f7fa',
+  },
+  contentContainer: {
     padding: 20,
-    backgroundColor: '#f8f8f8',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f7fa',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#7f8c8d',
+    fontSize: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontWeight: '700',
+    marginBottom: 25,
     textAlign: 'center',
-    color: '#333',
+    color: '#2c3e50',
+    letterSpacing: 0.5,
+  },
+  searchInput: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    fontSize: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e6ed',
+    color: '#2c3e50',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardContent: {
+    marginBottom: 15,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: '#2c3e50',
   },
   cardRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 8,
   },
-  card: {
-    backgroundColor: '#e0e0e0',
-    padding: 15,
-    borderRadius: 8,
-    flex: 1,
+  cardLabel: {
+    fontWeight: '600',
+    width: 100,
+    color: '#34495e',
   },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
   },
-  editButton: {
-    backgroundColor: '#28a745',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  editButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#888',
-    marginTop: 30,
-    fontSize: 16,
-  },
-  backButton: {
-    backgroundColor: '#6c757d',
+  button: {
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 5,
-    marginTop: 5,
-    marginBottom: 25,
+    marginLeft: 10,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  editButton: {
+    backgroundColor: '#27ae60',
+  },
+  deleteButton: {
+    backgroundColor: '#e74c3c',
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 30,
+    color: '#7f8c8d',
+    fontSize: 16,
+  },
+  backButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    borderRadius: 10,
+    marginTop: 20,
     alignSelf: 'center',
+    shadowColor: '#2980b9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   backButtonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });

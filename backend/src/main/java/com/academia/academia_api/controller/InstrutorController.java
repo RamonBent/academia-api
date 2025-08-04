@@ -3,6 +3,8 @@ package com.academia.academia_api.controller;
 import com.academia.academia_api.DTO.request.InstrutorRequestDTO;
 import com.academia.academia_api.DTO.response.InstrutorResponseDTO;
 import com.academia.academia_api.service.InstrutorService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +18,17 @@ public class InstrutorController {
     @Autowired
     private InstrutorService instrutorService;
 
+//    @PostMapping
+//    public ResponseEntity<InstrutorResponseDTO> criar(@RequestBody InstrutorRequestDTO dto) {
+//        return ResponseEntity.ok(instrutorService.criarInstrutor(dto));
+//
+//    }
+
     @PostMapping
-    public ResponseEntity<InstrutorResponseDTO> criar(@RequestBody InstrutorRequestDTO dto) {
+    public ResponseEntity<InstrutorResponseDTO> criar(@Valid @RequestBody InstrutorRequestDTO dto) {
         return ResponseEntity.ok(instrutorService.criarInstrutor(dto));
     }
+
 
     @GetMapping
     public ResponseEntity<List<InstrutorResponseDTO>> listarTodos() {
@@ -32,7 +41,10 @@ public class InstrutorController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<InstrutorResponseDTO> atualizar(@PathVariable Long id, @RequestBody InstrutorRequestDTO dto) {
+    public ResponseEntity<InstrutorResponseDTO> atualizar(
+            @PathVariable Long id,
+            @Valid @RequestBody InstrutorRequestDTO dto) {
+
         return ResponseEntity.ok(instrutorService.atualizarInstrutor(id, dto));
     }
 
@@ -41,4 +53,5 @@ public class InstrutorController {
         instrutorService.deletarInstrutor(id);
         return ResponseEntity.noContent().build();
     }
+
 }

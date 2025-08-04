@@ -15,6 +15,7 @@ public class InstrutorMapper {
         instrutor.setCpf(dto.getCpf());
         instrutor.setTelefone(dto.getTelefone());
         instrutor.setEmail(dto.getEmail());
+        instrutor.setNumeroCreef(dto.getNumeroCreef());
         return instrutor;
     }
 
@@ -25,6 +26,7 @@ public class InstrutorMapper {
         dto.setCpf(instrutor.getCpf());
         dto.setTelefone(instrutor.getTelefone());
         dto.setEmail(instrutor.getEmail());
+        dto.setNumeroCreef(instrutor.getNumeroCreef());
 
         if (instrutor.getAlunos() != null) {
             dto.setAlunosIds(instrutor.getAlunos()

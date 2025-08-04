@@ -1,152 +1,283 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData } from '../../../services/syncService';
 
-const INSTRUTOR_STORAGE_KEY = '@myApp:instrutores';
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function InstrutorForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [nome, setNome] = useState('');
-  const [cref, setCref] = useState('');
-  const [especialidade, setEspecialidade] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [email, setEmail] = useState('');
+
+  const [form, setForm] = useState({
+    nome: '',
+    cpf: '',
+    numeroCreef: '',
+    telefone: '',
+    email: ''
+  });
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const loadInstrutor = async () => {
       if (id) {
+        if (!isOnline) {
+          Alert.alert('Aviso', 'Você está offline. Não é possível carregar dados para edição.');
+          router.back();
+          return;
+        }
         try {
-          const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-          if (stored) {
-            const instrutores = JSON.parse(stored);
-            const instrutor = instrutores.find((a) => a.id === id);
-            if (instrutor) {
-              setNome(instrutor.nome);
-              setCref(instrutor.cref);
-              setEspecialidade(instrutor.especialidade);
-              setTelefone(instrutor.telefone);
-              setEmail(instrutor.email);
-              setIsEdit(true);
-            }
-          }
+          const response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`);
+          if (!response.ok) throw new Error('Instrutor não encontrado');
+
+          const instrutor = await response.json();
+          setForm({
+            nome: instrutor.nome || '',
+            cpf: instrutor.cpf || '',
+            numeroCreef: instrutor.numeroCreef || '',
+            telefone: instrutor.telefone || '',
+            email: instrutor.email || ''
+          });
+          setIsEdit(true);
         } catch (error) {
-          Alert.alert('Erro', 'Erro ao carregar instrutor para edição.');
+          Alert.alert('Erro', 'Erro ao carregar instrutor para edição');
+          router.back();
         }
       }
     };
     loadInstrutor();
-  }, [id]);
+  }, [id, isOnline]);
+
+  const handleChange = (name: string, value: string) => {
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async () => {
-    if (nome && cref && especialidade && telefone && email) {
-      try {
-        const stored = await AsyncStorage.getItem(INSTRUTOR_STORAGE_KEY);
-        let instrutores = stored ? JSON.parse(stored) : [];
-        if (isEdit) {
-          instrutores = instrutores.map((a) =>
-            a.id === id
-              ? { ...a, nome, cref, especialidade, telefone, email }
-              : a
-          );
-        } else {
-          instrutores.push({
-            id: Date.now().toString(),
-            nome,
-            cref,
-            especialidade,
-            telefone,
-            email,
-          });
-        }
-        await AsyncStorage.setItem(INSTRUTOR_STORAGE_KEY, JSON.stringify(instrutores));
-        router.back();
-      } catch (error) {
-        Alert.alert('Erro', 'Erro ao salvar instrutor.');
+    if (!form.nome || !form.cpf || !form.numeroCreef || !form.telefone || !form.email) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (isEdit) {
+        await handleEdit();
+      } else {
+        await handleCreate();
       }
-    } else {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+    } catch (error) {
+      Alert.alert('Erro', error.message || 'Ocorreu um erro ao processar sua solicitação');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  const handleEdit = async () => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/instrutores/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao atualizar instrutor');
+      }
+
+      Alert.alert('Sucesso', 'Instrutor atualizado com sucesso!', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleCreate = async () => {
+    if (isOnline) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/instrutores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(form)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Erro ao cadastrar instrutor');
+        }
+
+        Alert.alert('Sucesso', 'Instrutor cadastrado com sucesso!', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      } catch (error) {
+        await saveOfflineAndAlert();
+      }
+    } else {
+      await saveOfflineAndAlert();
+    }
+  };
+
+  const saveOfflineAndAlert = async () => {
+    try {
+      await saveOfflineData(form, 'instrutores');
+      Alert.alert(
+        'Modo Offline',
+        'Instrutor salvo localmente. Os dados serão sincronizados quando a conexão for restaurada.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error) {
+      Alert.alert('Erro', 'Falha ao salvar o instrutor localmente.');
+    }
+  };
+
+  const handleBack = () => {
+    if (isSubmitting) return;
+    router.back();
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>
-        {isEdit ? 'Editar Instrutor' : 'Formulário de Cadastro de Instrutor'}
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Nome Completo:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o nome do instrutor"
-          value={nome}
-          onChangeText={setNome}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Número CREF:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o CREF"
-          value={cref}
-          onChangeText={setCref}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Especialidade:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: Musculação, Pilates"
-          value={especialidade}
-          onChangeText={setEspecialidade}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Telefone:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o telefone"
-          keyboardType="phone-pad"
-          value={telefone}
-          onChangeText={setTelefone}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite o email"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>
-          {isEdit ? 'Salvar Alterações' : 'Salvar Instrutor'}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>
+          {isEdit ? 'Editar Instrutor' : 'Formulário de Cadastro de Instrutor'}
         </Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>Voltar para Cadastro</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {!isOnline && !isEdit && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>Você está offline. Os dados serão sincronizados quando a conexão for restaurada.</Text>
+          </View>
+        )}
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Nome Completo:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o nome do instrutor"
+            value={form.nome}
+            onChangeText={(text) => handleChange('nome', text)}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>CPF:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o CPF"
+            keyboardType="numeric"
+            value={form.cpf}
+            onChangeText={(text) => handleChange('cpf', text)}
+            maxLength={14}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Número CREF:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o CREF"
+            value={form.numeroCreef}
+            onChangeText={(text) => handleChange('numeroCreef', text)}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Telefone:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o telefone"
+            keyboardType="phone-pad"
+            value={form.telefone}
+            onChangeText={(text) => handleChange('telefone', text)}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Digite o email"
+            keyboardType="email-address"
+            value={form.email}
+            onChangeText={(text) => handleChange('email', text)}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.submitButton, isSubmitting && styles.disabledButton]} 
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {isEdit ? 'Salvar Alterações' : 'Salvar Instrutor'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.backButton, isSubmitting && styles.disabledButton]} 
+          onPress={handleBack}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.backButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f8f8f8',
+  },
+  scrollContainer: {
+    padding: 20,
+    paddingBottom: 100, 
   },
   title: {
     fontSize: 22,
@@ -199,5 +330,18 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: 'white',
     fontSize: 16,
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

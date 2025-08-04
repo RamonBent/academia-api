@@ -1,0 +1,2 @@
+ALTER TABLE instrutores
+ADD COLUMN numero_creef VARCHAR(255) NOT NULL UNIQUE;

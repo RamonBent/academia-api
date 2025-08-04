@@ -1,25 +1,36 @@
 package com.academia.academia_api.DTO.mapper;
 
 import com.academia.academia_api.DTO.request.AlunoRequestDTO;
+import com.academia.academia_api.DTO.request.TreinoRequestDTO;
+import com.academia.academia_api.DTO.request.AvaliacaoFisicaRequestDTO;
 import com.academia.academia_api.DTO.response.AlunoResponseDTO;
 import com.academia.academia_api.model.Aluno;
 import com.academia.academia_api.model.Instrutor;
+import com.academia.academia_api.model.Treino;
+import com.academia.academia_api.model.AvaliacaoFisica;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class AlunoMapper {
 
-    public static Aluno toEntity(AlunoRequestDTO dto, Instrutor instrutor) {
+    public static Aluno toEntity(
+            AlunoRequestDTO dto,
+            Instrutor instrutor,
+            List<Treino> treinos
+    ) {
         Aluno aluno = new Aluno();
         aluno.setNome(dto.getNome());
         aluno.setDataNascimento(dto.getDataNascimento());
         aluno.setTelefone(dto.getTelefone());
         aluno.setEmail(dto.getEmail());
         aluno.setEndereco(dto.getEndereco());
-        aluno.setPlano(dto.getPlano());
         aluno.setInstrutor(instrutor);
+        aluno.setTreinos(treinos);
         return aluno;
     }
+
+
 
     public static AlunoResponseDTO toResponseDTO(Aluno aluno) {
         AlunoResponseDTO dto = new AlunoResponseDTO();
@@ -43,4 +54,3 @@ public class AlunoMapper {
         return dto;
     }
 }
-
