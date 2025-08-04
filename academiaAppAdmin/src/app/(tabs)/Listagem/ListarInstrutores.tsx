@@ -1,26 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  Alert, 
+  TextInput, 
+  ActivityIndicator,
+  RefreshControl // Adicionei o import do RefreshControl
 } from 'react-native';
 import axios from 'axios';
-import { useRouter, useFocusEffect } from 'expo-router'; // useFocusEffect imported here
+import { useRouter, useFocusEffect } from 'expo-router';
 import Constants from 'expo-constants';
 import NetInfo from '@react-native-community/netinfo';
-import { syncOfflineData } from '../../../services/syncService'; // Assuming this path is correct
+import { syncOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarInstrutores() {
   const [instrutores, setInstrutores] = useState([]);
   const [filtro, setFiltro] = useState('');
-  const [instrutoresFiltrados, setInstrutoresFiltrados] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
-  const [isOnline, setIsOnline] = useState(true); // State to track network status
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const router = useRouter();
 
-  // Effect to listen for network changes
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
@@ -28,66 +33,39 @@ export default function ListarInstrutores() {
     return () => unsubscribe();
   }, []);
 
-  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
-  useFocusEffect(
-    React.useCallback(() => {
-      setLoading(true); // Start loading when screen is focused
-      NetInfo.fetch().then(state => {
-        if (state.isConnected) {
-          // If online, try to sync offline data first
-          syncOfflineData().then(() => {
-            fetchInstrutores(); // Then fetch fresh data
-          }).catch(syncError => {
-            console.error('Erro durante a sincronização:', syncError);
-            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
-            fetchInstrutores(); // Still try to load data even if sync fails
-          });
-        } else {
-          // If offline, just load available data (will fail if no local cache is implemented)
-          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados.');
-          fetchInstrutores(); // Try to fetch, knowing it might fail
-        }
-      });
-    }, [])
-  );
-
-  // Filter instructors based on search term
-  useEffect(() => {
-    if (filtro.trim() === '') {
-      setInstrutoresFiltrados(instrutores);
-    } else {
-      const filtroMinusculo = filtro.toLowerCase();
-      setInstrutoresFiltrados(
-        instrutores.filter(instrutor => 
-          instrutor.nome && instrutor.nome.toLowerCase().includes(filtroMinusculo)
-        )
-      );
-    }
-  }, [filtro, instrutores]);
-
   const fetchInstrutores = async () => {
-    setLoading(true);
-    // Only attempt to fetch if online
-    if (!isOnline) {
-      setLoading(false);
-      // In a real offline scenario, you'd load from a local database here
-      // Alert.alert("Aviso", "Você está offline. Não é possível carregar a lista de instrutores atualizada.");
-      return; 
-    }
     try {
       const response = await axios.get(`${API_BASE_URL}/api/instrutores`);
       setInstrutores(response.data);
-      setInstrutoresFiltrados(response.data);
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar a lista de instrutores. Verifique sua conexão.");
       console.error("Erro ao carregar instrutores:", error);
+      if (isOnline) {
+        Alert.alert("Erro", "Não foi possível carregar a lista de instrutores");
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const deleteInstrutor = async (id) => {
-    // Prevent deletion if offline
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoading(true);
+      fetchInstrutores();
+    }, [])
+  );
+
+  const handleRefresh = () => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Não é possível atualizar os dados.');
+      setRefreshing(false);
+      return;
+    }
+    setRefreshing(true);
+    fetchInstrutores();
+  };
+
+  const deleteInstrutor = async (id: number) => {
     if (!isOnline) {
       Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
       return;
@@ -100,50 +78,25 @@ export default function ListarInstrutores() {
       },
       {
         text: 'Excluir',
-        style: 'destructive',
         onPress: async () => {
-          setDeletingId(id);
           try {
             await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
-            
-            // Optimistically update the UI
-            setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
-            
+            setInstrutores(prev => prev.filter(instrutor => instrutor.id !== id));
             Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
-            
           } catch (error) {
             console.error("Erro ao excluir instrutor:", error);
-            Alert.alert("Erro", "Não foi possível excluir o instrutor. Tente novamente.");
-            fetchInstrutores(); // Reload data in case of error
-          } finally {
-            setDeletingId(null);
+            Alert.alert("Erro", "Não foi possível excluir o instrutor");
           }
         },
       },
     ]);
   };
 
-  const handleEdit = (id) => {
-    // Prevent editing if offline
-    if (!isOnline) {
-      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
-      return;
-    }
-    setEditingId(id);
-    try {
-      router.push({ 
-        pathname: '/Cadastro/InstrutorForm', 
-        params: { id: id.toString() }
-      });
-    } catch (error) {
-      console.error("Erro ao navegar para edição:", error);
-      Alert.alert("Erro", "Não foi possível abrir a edição");
-    } finally {
-      setEditingId(null);
-    }
-  };
+  const filteredInstrutores = instrutores.filter(instrutor =>
+    instrutor.nome?.toLowerCase().includes(filtro.toLowerCase())
+  );
 
-  if (loading && instrutores.length === 0) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3498db" />
@@ -153,91 +106,84 @@ export default function ListarInstrutores() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={['#3498db']}
+          tintColor="#3498db"
+        />
+      }
+    >
       <Text style={styles.title}>Lista de Instrutores</Text>
 
       {!isOnline && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+          <Text style={styles.offlineText}>Modo offline - Algumas funcionalidades estão desativadas</Text>
         </View>
       )}
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Pesquisar instrutor pelo nome"
-        placeholderTextColor="#95a5a6"
+        placeholder="Buscar instrutor..."
+        placeholderTextColor="#999"
         value={filtro}
         onChangeText={setFiltro}
-        autoCapitalize="none"
-        editable={isOnline} // Disable search if offline (as it relies on API)
       />
 
-      {instrutoresFiltrados.length === 0 ? (
-        <Text style={styles.emptyText}>
-          {filtro ? 'Nenhum instrutor encontrado com este nome.' : 'Nenhum instrutor cadastrado.'}
-        </Text>
+      {filteredInstrutores.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyMessage}>
+            {filtro ? 'Nenhum instrutor encontrado' : 'Nenhum instrutor cadastrado'}
+          </Text>
+        </View>
       ) : (
-        instrutoresFiltrados.map((instrutor) => (
-          <View key={instrutor.id} style={styles.cardContainer}>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{instrutor.nome || 'Nome não informado'}</Text>
-              
-              <View style={styles.cardRow}>
-                <Text style={styles.cardLabel}>CREF:</Text>
-                <Text>{instrutor.cref || '-'}</Text>
-              </View>
-              
-              <View style={styles.cardRow}>
-                <Text style={styles.cardLabel}>Especialidade:</Text>
-                <Text>{instrutor.especialidade || '-'}</Text>
-              </View>
-              
-              <View style={styles.cardRow}>
-                <Text style={styles.cardLabel}>Telefone:</Text>
-                <Text>{instrutor.telefone || '-'}</Text>
-              </View>
-              
-              <View style={styles.cardRow}>
-                <Text style={styles.cardLabel}>Email:</Text>
-                <Text>{instrutor.email || '-'}</Text>
-              </View>
+        filteredInstrutores.map(instrutor => (
+          <View key={instrutor.id} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{instrutor.nome}</Text>
+              <Text style={styles.cardSubtitle}>CREF: {instrutor.numeroCreef || 'Não informado'}</Text>
             </View>
-            
-            <View style={styles.buttonsContainer}>
+
+            <View style={styles.cardBody}>
+              <Text style={styles.cardText}>
+                <Text style={styles.cardLabel}>Email: </Text>
+                {instrutor.email || 'Não informado'}
+              </Text>
+              <Text style={styles.cardText}>
+                <Text style={styles.cardLabel}>Telefone: </Text>
+                {instrutor.telefone || 'Não informado'}
+              </Text>
+            </View>
+
+            <View style={styles.cardFooter}>
               <TouchableOpacity
-                style={[styles.button, styles.editButton, editingId === instrutor.id && styles.disabledButton]}
-                onPress={() => handleEdit(instrutor.id)}
-                disabled={editingId === instrutor.id || !isOnline} // Disable edit if offline
+                style={[styles.button, styles.editButton, !isOnline && styles.disabledButton]}
+                onPress={() => router.push(`/Cadastro/InstrutorForm?id=${instrutor.id}`)}
+                disabled={!isOnline}
               >
-                {editingId === instrutor.id ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={styles.buttonText}>Editar</Text>
-                )}
+                <Text style={styles.buttonText}>Editar</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
-                style={[styles.button, styles.deleteButton, deletingId === instrutor.id && styles.disabledButton]}
+                style={[styles.button, styles.deleteButton, !isOnline && styles.disabledButton]}
                 onPress={() => deleteInstrutor(instrutor.id)}
-                disabled={deletingId === instrutor.id || !isOnline} // Disable delete if offline
+                disabled={!isOnline}
               >
-                {deletingId === instrutor.id ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={styles.buttonText}>Excluir</Text>
-                )}
+                <Text style={styles.buttonText}>Excluir</Text>
               </TouchableOpacity>
             </View>
           </View>
         ))
       )}
 
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => router.back()}
-        activeOpacity={0.8}
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push('/Cadastro/InstrutorForm')}
       >
-        <Text style={styles.backButtonText}>Voltar</Text>
+        <Text style={styles.addButtonText}>+ Adicionar Instrutor</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -246,135 +192,128 @@ export default function ListarInstrutores() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
-  },
-  contentContainer: {
-    padding: 20,
+    padding: 16,
+    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 10,
     color: '#7f8c8d',
-    fontSize: 16,
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 25,
+    fontWeight: 'bold',
+    marginBottom: 20,
     textAlign: 'center',
     color: '#2c3e50',
-    letterSpacing: 0.5,
   },
   searchInput: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    fontSize: 16,
-    marginBottom: 20,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e0e6ed',
-    color: '#2c3e50',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: '#ddd',
+    fontSize: 16,
   },
-  cardContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  cardContent: {
-    marginBottom: 15,
+  cardHeader: {
+    marginBottom: 12,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontWeight: 'bold',
     color: '#2c3e50',
   },
-  cardRow: {
-    flexDirection: 'row',
-    marginBottom: 5,
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginTop: 4,
+  },
+  cardBody: {
+    marginBottom: 12,
+  },
+  cardText: {
+    fontSize: 14,
+    marginBottom: 6,
+    color: '#34495e',
   },
   cardLabel: {
     fontWeight: '600',
-    width: 100,
-    color: '#34495e',
+    color: '#2c3e50',
   },
-  buttonsContainer: {
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 10,
+    marginTop: 8,
   },
   button: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-    marginLeft: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    marginLeft: 8,
     minWidth: 80,
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
   },
   buttonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
   },
   editButton: {
-    backgroundColor: '#27ae60',
+    backgroundColor: '#3498db',
   },
   deleteButton: {
     backgroundColor: '#e74c3c',
   },
   disabledButton: {
     backgroundColor: '#95a5a6',
+    opacity: 0.6,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 30,
+  addButton: {
+    backgroundColor: '#2ecc71',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyMessage: {
+    fontSize: 16,
     color: '#7f8c8d',
-    fontSize: 16,
-  },
-  backButton: {
-    backgroundColor: '#3498db',
-    paddingVertical: 14,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-    marginTop: 20,
-    alignSelf: 'center',
-    shadowColor: '#2980b9',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  backButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+    textAlign: 'center',
   },
   offlineBanner: {
-    backgroundColor: '#ffc107',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 20,
+    backgroundColor: '#f39c12',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   offlineText: {
-    color: '#856404',
+    color: '#fff',
     textAlign: 'center',
+    fontSize: 14,
   },
 });

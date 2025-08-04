@@ -10,5 +10,6 @@ public class InstrutorResponseDTO {
     private String cpf;
     private String telefone;
     private String email;
+    private String numeroCreef;
     private List<Long> alunosIds;
 }

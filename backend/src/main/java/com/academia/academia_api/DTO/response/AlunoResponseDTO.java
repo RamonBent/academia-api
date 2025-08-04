@@ -15,6 +15,7 @@ public class AlunoResponseDTO {
     private String plano;
     private String nomeInstrutor;
 
+
     private List<Long> avaliacoesIds;
     private List<Long> treinosIds;
 }

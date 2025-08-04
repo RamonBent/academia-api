@@ -6,6 +6,7 @@ import com.academia.academia_api.DTO.response.InstrutorResponseDTO;
 import com.academia.academia_api.model.Instrutor;
 import com.academia.academia_api.repository.InstrutorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -39,22 +40,25 @@ public class InstrutorService {
     public InstrutorResponseDTO atualizarInstrutor(Long id, InstrutorRequestDTO dto) {
         Instrutor instrutor = instrutorRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
-
         instrutor.setNome(dto.getNome());
         instrutor.setCpf(dto.getCpf());
         instrutor.setTelefone(dto.getTelefone());
         instrutor.setEmail(dto.getEmail());
-        instrutor.setNumeroCREEF(dto.getCref());
+        instrutor.setNumeroCreef(dto.getNumeroCreef());
 
         Instrutor atualizado = instrutorRepository.save(instrutor);
         return InstrutorMapper.toResponseDTO(atualizado);
     }
 
     public void deletarInstrutor(Long id) {
-        if (!instrutorRepository.existsById(id)) {
-            throw new RuntimeException("Instrutor não encontrado");
+        Instrutor instrutor = instrutorRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Instrutor não encontrado"));
+
+        try {
+            instrutorRepository.delete(instrutor);
+        } catch (DataIntegrityViolationException e) {
+            throw new RuntimeException("Não é possível excluir o instrutor pois existem alunos vinculados a ele");
         }
-        instrutorRepository.deleteById(id);
     }
 }
 
