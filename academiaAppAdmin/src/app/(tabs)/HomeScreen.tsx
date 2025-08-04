@@ -1,122 +1,204 @@
-import { View, Text, Dimensions, StyleSheet, Alert, Button } from 'react-native';
+import {
+  View,
+  Text,
+  Dimensions,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react'; // Added useEffect
-import { BarChart, PieChart } from 'react-native-chart-kit'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { PieChart } from 'react-native-chart-kit';
 import axios from 'axios';
+import Constants from 'expo-constants';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native'; // Import useIsFocused
 
 const screenWidth = Dimensions.get('window').width;
-const EXERCICIO_STORAGE_KEY = '@myApp:exercicios';
-
-import Constants from 'expo-constants';
-
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
-const chartConfig = {
-  backgroundGradientFrom: '#fff', 
-  backgroundGradientFromOpacity: 0, 
-  backgroundGradientTo: '#fff',   
-  backgroundGradientToOpacity: 0.5, 
-  color: (opacity = 1) => `rgba(53, 0, 117, ${opacity})`, 
-  strokeWidth: 2, 
-  barPercentage: 0.7, 
-  useShadowColorFromDataset: false, 
+type FaixaEtariaApiResponse = {
+  [key: string]: number;
 };
 
-export default function HomeScreen(){
-  const [exercicios, setExercicios] = useState<any[]>([]);
+type FaixaEtariaPieData = {
+  name: string;
+  population: number;
+  color: string;
+  legendFontColor: string;
+  legendFontSize: number;
+}[];
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadExercicios = async () => {
-        try {
-          const storedExercicios = await AsyncStorage.getItem(EXERCICIO_STORAGE_KEY);
-          if (storedExercicios !== null) {
-            let parsedExercicios = JSON.parse(storedExercicios);
-            setExercicios(parsedExercicios); 
-            console.log("Exercícios carregados para o charts:", parsedExercicios);
-          } else {
-            setExercicios([]);
-          }
-        } catch (error) {
-          console.error("Erro de carregamento de exercícios do AsyncStorage para o charts", error);
-          setExercicios([]);
-        }
-      };
+const chartConfig = {
+  backgroundGradientFrom: '#fff',
+  backgroundGradientTo: '#fff',
+  color: (opacity = 1) => `rgba(53, 0, 117, ${opacity})`,
+  labelColor: () => '#333',
+  strokeWidth: 2,
+  decimalPlaces: 0,
+  propsForLabels: {
+    fontSize: 12,
+    fontWeight: '500'
+  }
+};
 
-      loadExercicios();
-    }, [])
-  );
-
-  // Processar dados para os gráficos a partir de 'exercicios'
-  const gruposMuscularesCount: { [key: string]: number } = {};
-  exercicios.forEach(exercicio => {
-    const grupo = exercicio.grupoMuscular ? exercicio.grupoMuscular.toLowerCase() : 'desconhecido';
-    gruposMuscularesCount[grupo] = (gruposMuscularesCount[grupo] || 0) + 1;
+export default function HomeScreen() {
+  const isFocused = useIsFocused(); // Track screen focus
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totais, setTotais] = useState({
+    alunos: 0,
+    instrutores: 0,
+    treinos: 0,
+    avaliacoes: 0,
   });
+  const [faixaEtariaPieData, setFaixaEtariaPieData] = useState<FaixaEtariaPieData>([]);
 
-  const barChartLabels = Object.keys(gruposMuscularesCount);
-  const barChartValues = Object.values(gruposMuscularesCount);
+  const faixaEtariaColors = [
+    '#6a0dad',
+    '#9c27b0',
+    '#673ab7',
+    '#3f51b5',
+    '#2196f3',
+    '#03a9f4',
+  ];
 
-  const barChartData = {
-    labels: barChartLabels.length > 0 ? barChartLabels : ['Sem Dados'],
-    datasets: [
-      {
-        data: barChartValues.length > 0 ? barChartValues : [1],
-        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`, 
-      },
-    ],
+  const fetchDadosDaAPI = async () => {
+    setError(null);
+    setLoading(true);
+    setRefreshing(true);
+    try {
+      if (!API_BASE_URL) {
+        throw new Error('API_BASE_URL não configurada. Verifique app.config.js ou app.json.');
+      }
+
+      const [alRes, insRes, trRes, avRes, faixaEtariaRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/alunos`),
+        axios.get(`${API_BASE_URL}/api/instrutores`),
+        axios.get(`${API_BASE_URL}/api/treinos`),
+        axios.get(`${API_BASE_URL}/api/avaliacoes`),
+        axios.get<FaixaEtariaApiResponse>(`${API_BASE_URL}/api/alunos/faixa-etaria`),
+      ]);
+
+      setTotais({
+        alunos: alRes.data.length,
+        instrutores: insRes.data.length,
+        treinos: trRes.data.length,
+        avaliacoes: avRes.data.length,
+      });
+
+      processarFaixaEtariaParaGrafico(faixaEtariaRes.data);
+
+    } catch (err: any) {
+      console.error('Erro ao buscar dados da API:', err);
+      setError(`Falha ao carregar dados: ${err.message || 'Erro desconhecido'}. Tente novamente.`);
+      Alert.alert('Erro', `Não foi possível carregar os dados. ${err.message || 'Verifique sua conexão ou a configuração da API.'}`);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const pieChartData = barChartLabels.map((grupo, index) => ({
-    name: grupo,
-    population: barChartValues[index],
-    color: `hsl(${index * 137 % 360}, 70%, 50%)`,
-    legendFontColor: '#7F7F7F',
-    legendFontSize: 15,
-  }));
+  const processarFaixaEtariaParaGrafico = (data: FaixaEtariaApiResponse) => {
+    const formattedData: FaixaEtariaPieData = Object.keys(data).map((label, index) => ({
+      name: label,
+      population: data[label],
+      color: faixaEtariaColors[index % faixaEtariaColors.length],
+      legendFontColor: '#333',
+      legendFontSize: 12,
+    }));
+    setFaixaEtariaPieData(formattedData);
+  };
 
+  useEffect(() => {
+    if (isFocused) { // Only fetch data when screen is focused
+      fetchDadosDaAPI();
+    }
+  }, [isFocused]); // Add isFocused as dependency
 
-  return(
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchDadosDaAPI();
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#6a0dad" />
+        <Text style={styles.placeholderText}>Carregando dados...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>
-        Dashboard de Exercícios
-      </Text>
-
-      <Text style={styles.chartSubtitle}>
-        Exercícios por Grupo Muscular (Gráfico de Barras)
-      </Text>
-      <BarChart
-        data={barChartData}
-        width={screenWidth - 32}
-        height={220}
-        chartConfig={chartConfig}
-        verticalLabelRotation={0}
-        showBarTops={true}
-        showValuesOnTopOfBars={true}
-        style={styles.chartStyle} yAxisLabel={''} yAxisSuffix={''}         />
-
-      <Text style={styles.chartSubtitle}>
-        Exercícios por Grupo Muscular (Gráfico de Pizza)
-      </Text>
-      {pieChartData.length > 0 ? (
-          <PieChart
-            data={pieChartData} 
-            width={screenWidth - 32}
-            height={240}
-            chartConfig={chartConfig} 
-            accessor={"population"} 
-            backgroundColor={"transparent"} 
-            paddingLeft={"15"} 
-            center={[screenWidth / 50, 0]} 
-            absolute 
-            hasLegend={true} 
-            style={styles.chartStyle}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#6a0dad']}
           />
-      ) : (
-          <Text style={styles.noDataText}>Nenhum dado de exercício disponível para o gráfico de pizza.</Text>
-      )}
+        }
+      >
+        <Text style={styles.title}>📊 Painel da Academia</Text>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="alert-circle" size={24} color="#D32F2F" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        <View style={styles.cardContainer}>
+          <View style={[styles.card, styles.cardPrimary]}>
+            <MaterialCommunityIcons name="account" size={28} color="#fff" />
+            <Text style={styles.cardValue}>{totais.alunos}</Text>
+            <Text style={styles.cardLabel}>Alunos</Text>
+          </View>
+          <View style={[styles.card, styles.cardSecondary]}>
+            <MaterialCommunityIcons name="dumbbell" size={28} color="#fff" />
+            <Text style={styles.cardValue}>{totais.instrutores}</Text>
+            <Text style={styles.cardLabel}>Instrutores</Text>
+          </View>
+          <View style={[styles.card, styles.cardTertiary]}>
+            <MaterialCommunityIcons name="clipboard-list" size={28} color="#fff" />
+            <Text style={styles.cardValue}>{totais.treinos}</Text>
+            <Text style={styles.cardLabel}>Treinos</Text>
+          </View>
+          <View style={[styles.card, styles.cardQuaternary]}>
+            <MaterialCommunityIcons name="chart-line" size={28} color="#fff" />
+            <Text style={styles.cardValue}>{totais.avaliacoes}</Text>
+            <Text style={styles.cardLabel}>Avaliações</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Distribuição por Faixa Etária dos Alunos</Text>
+        {faixaEtariaPieData.length > 0 && faixaEtariaPieData.some(d => d.population > 0) ? (
+          <View style={styles.chartWrapper}>
+            <PieChart
+              data={faixaEtariaPieData}
+              width={screenWidth - 32}
+              height={220}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="15"
+              hasLegend={true}
+              absolute
+              style={styles.chart}
+            />
+          </View>
+        ) : (
+          <View style={styles.chartPlaceholder}>
+            <Text style={styles.placeholderText}>Nenhum dado de faixa etária disponível.</Text>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -124,53 +206,114 @@ export default function HomeScreen(){
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f8f9fc',
     padding: 16,
   },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
+    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#350075',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginVertical: 16,
+    color: '#333',
+    marginLeft: 8,
+  },
+  cardContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  card: {
+    borderRadius: 16,
+    width: '48%',
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardPrimary: {
+    backgroundColor: '#6a0dad',
+  },
+  cardSecondary: {
+    backgroundColor: '#9c27b0',
+  },
+  cardTertiary: {
+    backgroundColor: '#673ab7',
+  },
+  cardQuaternary: {
+    backgroundColor: '#3f51b5',
+  },
+  cardValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#fff',
+    marginVertical: 8,
   },
-  buttonContainer: {
-    marginVertical: 10,
-    borderRadius: 8,
-    overflow: 'hidden', // Ensures the button background respects borderRadius
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  chartSubtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'left',
-    marginTop: 20, 
-    marginBottom: 10,
-  },
-  chartStyle: {
-    marginVertical: 10,
-    borderRadius: 20,
-    backgroundColor: 'white', 
-    paddingVertical: 10,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  noDataText: {
-    textAlign: 'center',
-    marginTop: 20,
+  cardLabel: {
     fontSize: 16,
-    color: 'gray',
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
+  },
+  chartWrapper: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  chartPlaceholder: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  placeholderText: {
+    color: '#666',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  chart: {
+    borderRadius: 12,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderColor: '#EF9A9A',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#D32F2F',
+    marginLeft: 8,
+    flexShrink: 1,
   },
 });

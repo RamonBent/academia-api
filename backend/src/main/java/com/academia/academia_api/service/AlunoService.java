@@ -1,7 +1,11 @@
 package com.academia.academia_api.service;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.academia.academia_api.model.Treino;
@@ -131,5 +135,32 @@ public class AlunoService {
         aluno.getTreinos().addAll(treinos);
 
         alunoRepository.save(aluno);
+    }
+
+    public Map<String, Integer> calcularFaixaEtaria() {
+        List<Aluno> alunos = alunoRepository.findAll();
+        Map<String, Integer> faixas = new LinkedHashMap<>();
+        faixas.put("Até 25 anos", 0);
+        faixas.put("26-35 anos", 0);
+        faixas.put("36-45 anos", 0);
+        faixas.put("46-60 anos", 0);
+        faixas.put("60+ anos", 0);
+
+        alunos.forEach(aluno -> {
+            int idade = Period.between(aluno.getDataNascimento(), LocalDate.now()).getYears();
+            if (idade <= 25) {
+                faixas.put("Até 25 anos", faixas.get("Até 25 anos") + 1);
+            } else if (idade <= 35) {
+                faixas.put("26-35 anos", faixas.get("26-35 anos") + 1);
+            } else if (idade <= 45) {
+                faixas.put("36-45 anos", faixas.get("36-45 anos") + 1);
+            } else if (idade <= 60) {
+                faixas.put("46-60 anos", faixas.get("46-60 anos") + 1);
+            } else {
+                faixas.put("60+ anos", faixas.get("60+ anos") + 1);
+            }
+        });
+
+        return faixas;
     }
 }

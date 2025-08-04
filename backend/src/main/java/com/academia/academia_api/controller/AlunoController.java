@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/alunos")
@@ -75,6 +76,11 @@ public class AlunoController {
                 .orElseThrow(() -> new RuntimeException("Aluno não encontrado"));
 
         return ResponseEntity.ok(aluno.getTreinos());
+    }
+
+    @GetMapping("/faixa-etaria")
+    public ResponseEntity<Map<String, Integer>> getFaixaEtaria() {
+        return ResponseEntity.ok(alunoService.calcularFaixaEtaria());
     }
 
 }
