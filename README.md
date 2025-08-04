@@ -1,105 +1,94 @@
-# 🏋️‍♂️ API REST – Sistema de Academia
+# 🏋️‍♂️ academiaApp
 
 ## 📘 Sobre o Projeto
 
-Esta API RESTful foi criada para gerenciar uma academia, possibilitando o controle de **alunos, instrutores, treinos, exercícios** e **avaliações físicas**. O objetivo é facilitar o acompanhamento da rotina de treinos dos alunos, a criação de planos personalizados e o registro de avaliações físicas, promovendo um gerenciamento eficiente da instituição.
+Este é um sistema completo para gerenciamento de academias, composto por dois aplicativos móveis desenvolvidos em **React Native** com **TypeScript**. A arquitetura **offline-first** permite que os usuários interajam com os dados mesmo sem uma conexão ativa com a internet. O sistema é ideal para digitalizar o controle de alunos, treinos e avaliações físicas.
 
----
+  - **AcademiaApp (Aluno):** Permite aos alunos visualizarem seus treinos, exercícios e informações do seu instrutor.
+  - **AcademiaAppAdmin (Administrador):** Um painel de controle completo para administradores, que podem realizar operações de **CRUD (criar, ler, atualizar, deletar)** para gerenciar a academia de forma eficiente.
 
-## 🚀 Funcionalidades
+-----
 
-- Cadastro e gerenciamento de alunos e instrutores
-- Criação e atribuição de treinos personalizados
-- Cadastro de exercícios físicos
-- Registro de avaliações físicas dos alunos
-- Consulta, atualização e remoção de todos os dados acima
+## 🚀 Funcionalidades Principais
 
----
+  - **Gerenciamento Completo:** Cadastro e controle de alunos e instrutores.
+  - **Treinos Personalizados:** Criação e atribuição de treinos customizados.
+  - **Catálogo de Exercícios:** Cadastro e visualização de exercícios físicos detalhados.
+  - **Acompanhamento de Progresso:** Registro e histórico de avaliações físicas dos alunos.
+  - **Sincronização Offline:** Acesso aos dados mesmo sem internet.
 
-## 📚 Endpoints da API
+-----
 
-### 🏋️ Treino Controller
+## 📱 Visão Geral dos Aplicativos
 
-| Método | Endpoint         | Descrição                         |
-|--------|------------------|-----------------------------------|
-| `GET`  | `/treinos/{id}`  | Busca um treino pelo ID           |
-| `PUT`  | `/treinos/{id}`  | Atualiza um treino existente      |
-| `DELETE` | `/treinos/{id}` | Remove um treino por ID           |
-| `GET`  | `/treinos`       | Lista todos os treinos            |
-| `POST` | `/treinos`       | Cria um novo treino               |
+### AcademiaApp (Aluno)
 
----
+| Funcionalidade | Descrição |
+|---|---|
+| **Meus Treinos** | Visualização do treino do dia, incluindo detalhes de exercícios, séries e repetições. |
+| **Exercícios** | Consulta de todos os exercícios disponíveis, com informações e instruções visuais. |
+| **Meu Instrutor** | Dados de contato e informações do instrutor responsável. |
+| **Progresso** | Acompanhamento do histórico de avaliações físicas e evolução. |
 
-### 👨‍🏫 Instrutor Controller
+### AcademiaAppAdmin (Administrador)
 
-| Método | Endpoint                 | Descrição                         |
-|--------|--------------------------|-----------------------------------|
-| `GET`  | `/api/instrutores/{id}`  | Busca um instrutor pelo ID        |
-| `PUT`  | `/api/instrutores/{id}`  | Atualiza um instrutor existente   |
-| `DELETE` | `/api/instrutores/{id}` | Remove um instrutor por ID        |
-| `GET`  | `/api/instrutores`       | Lista todos os instrutores        |
-| `POST` | `/api/instrutores`       | Cadastra um novo instrutor        |
+| Funcionalidade | Descrição |
+|---|---|
+| **Gerenciar Alunos** | Cadastro, edição e remoção de alunos de forma intuitiva. |
+| **Gerenciar Instrutores** | Cadastro, edição e remoção de instrutores. |
+| **Montar Treinos** | Criação e atribuição de treinos personalizados a cada aluno. |
+| **Gerenciar Exercícios** | Adição, edição e remoção de exercícios do banco de dados. |
+| **Avaliações Físicas** | Registro e consulta detalhada das avaliações físicas dos alunos. |
 
----
+-----
 
-### 🏃 Exercício Controller
+## 🛠️ Tecnologias Utilizadas
 
-| Método | Endpoint                 | Descrição                         |
-|--------|--------------------------|-----------------------------------|
-| `GET`  | `/api/exercicios/{id}`   | Busca um exercício pelo ID        |
-| `PUT`  | `/api/exercicios/{id}`   | Atualiza um exercício existente   |
-| `DELETE` | `/api/exercicios/{id}` | Remove um exercício por ID        |
-| `GET`  | `/api/exercicios`        | Lista todos os exercícios         |
-| `POST` | `/api/exercicios`        | Cadastra um novo exercício        |
+  - **Frontend Mobile:** React Native, TypeScript, Expo
+  - **Arquitetura:** Offline-first com sincronização de dados
+  - **Backend:** Java com Spring Boot
+  - **Banco de Dados:** PostgreSQL
 
----
+-----
 
-### 👨‍🎓 Aluno Controller
+## ⚙️ Instruções de Instalação e Execução
 
-| Método | Endpoint              | Descrição                         |
-|--------|-----------------------|-----------------------------------|
-| `GET`  | `/api/alunos/{id}`    | Busca um aluno pelo ID            |
-| `PUT`  | `/api/alunos/{id}`    | Atualiza os dados de um aluno     |
-| `DELETE` | `/api/alunos/{id}`  | Remove um aluno                   |
-| `GET`  | `/api/alunos`         | Lista todos os alunos             |
-| `POST` | `/api/alunos`         | Cadastra um novo aluno            |
+Para rodar o projeto localmente, siga os passos abaixo:
 
----
+1.  **Clone o repositório:**
 
-### 📊 Avaliação Física Controller
+    ```bash
+    git clone https://github.com/dolthub/dolt
+    ```
 
-| Método | Endpoint              | Descrição                          |
-|--------|-----------------------|------------------------------------|
-| `GET`  | `/avaliacoes`         | Lista todas as avaliações          |
-| `POST` | `/avaliacoes`         | Cadastra uma nova avaliação física |
-| `GET`  | `/avaliacoes/{id}`    | Detalha uma avaliação específica   |
-| `DELETE` | `/avaliacoes/{id}`  | Remove uma avaliação por ID        |
+2.  **Configure o Backend:**
 
----
+      - Edite o arquivo `application.properties` com as credenciais do seu banco de dados **PostgreSQL**.
+      - Inicie a aplicação **Spring Boot**.
 
-## 🧪 Tecnologias Utilizadas
+3.  **Configure os Aplicativos Mobile:**
 
-- Java + Spring Boot
-- Swagger para documentação interativa
-- PostgreSQL
-- Padrão MVC
-- DTOs e Controllers bem estruturados
+      - Navegue para as pastas `academiaApp` e `academiaAppAdmin`.
+      - Instale as dependências com `npm install` ou `yarn install`.
+      - No arquivo `app.config.ts`, ajuste o endereço IP da sua máquina para que a URL da API aponte para o seu backend local.
 
----
+    <!-- end list -->
 
-## ⚙️ Instruções para Rodar o Projeto
+    ```typescript
+    // app.config.ts
+    import { ExpoConfig, ConfigContext } from '@expo/config';
 
-1. Clone o repositório
-2. Configure o `application.properties` com seu banco de dados
-3. Execute a aplicação com o Spring Boot
-4. Acesse a documentação Swagger em: `http://localhost:8080/swagger-ui.html`
+    export default ({ config }: ConfigContext): any => ({
+      ...config,
+      extra: {
+        ...config.extra,
+        API_BASE_URL: "http://192.168.1.76:8080", // Altere para o seu IP local
+      },
+    });
+    ```
 
----
+      - Execute o aplicativo usando `npx expo start -c`.
 
-## 📌 Observações
+-----
 
-- Pode ser facilmente estendida para incluir autenticação via JWT
-- Você pode integrar com frontend em React ou aplicativo mobile
-- Ideal para academias que desejam ter controle digital dos alunos e seus treinos
-
----
+Com este sistema, você terá uma solução robusta e moderna para digitalizar a gestão de sua academia.
