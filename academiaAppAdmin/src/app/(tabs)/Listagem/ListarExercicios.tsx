@@ -1,47 +1,139 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator
+} from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { syncOfflineData } from '../../../services/syncService'; // Assuming this path is correct
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export default function ListarExercicios() {
   const [exercicios, setExercicios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); // State to track network status
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
-  const { useFocusEffect } = require('expo-router');
+  // Effect to listen for network changes
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Function to fetch exercises from API
+  const fetchExercicios = async () => {
+    setLoading(true);
+    // Only attempt to fetch if online
+    if (!isOnline) {
+      setLoading(false);
+      // In a real offline scenario, you'd load from a local database here
+      return;
+    }
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
+      setExercicios(response.data);
+    } catch (error) {
+      console.error("Erro ao buscar exercícios da API:", error);
+      Alert.alert('Erro', 'Não foi possível carregar os exercícios. Verifique sua conexão.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
   useFocusEffect(
     React.useCallback(() => {
-      const fetchExercicios = async () => {
-        try {
-          const response = await axios.get(`${API_BASE_URL}/api/exercicios`);
-          setExercicios(response.data);
-        } catch (error) {
-          console.error("Erro ao buscar exercícios da API", error);
+      setLoading(true); // Start loading when screen is focused
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          // If online, try to sync offline data first
+          syncOfflineData().then(() => {
+            fetchExercicios(); // Then fetch fresh data
+          }).catch(syncError => {
+            console.error('Erro durante a sincronização:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
+            fetchExercicios(); // Still try to load data even if sync fails
+          });
+        } else {
+          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
+          fetchExercicios(); // Try to fetch, knowing it might fail
         }
-      };
-      fetchExercicios();
+      });
     }, [])
   );
 
   const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${API_BASE_URL}/api/exercicios/${id}`);
-      setExercicios((prev) => prev.filter((exercicio) => exercicio.id !== id));
-    } catch (error) {
-      console.error("Erro ao deletar exercício", error);
+    // Prevent deletion if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
+      return;
     }
+
+    Alert.alert('Confirmação', 'Deseja realmente excluir este exercício?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(id);
+          try {
+            await axios.delete(`${API_BASE_URL}/api/exercicios/${id}`);
+            setExercicios((prev) => prev.filter((exercicio) => exercicio.id !== id));
+            Alert.alert("Sucesso", "Exercício excluído com sucesso!");
+          } catch (error) {
+            console.error("Erro ao deletar exercício:", error);
+            Alert.alert("Erro", "Não foi possível excluir o exercício. Tente novamente.");
+            fetchExercicios(); // Reload data in case of error
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const handleEdit = (id) => {
+    // Prevent editing if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
     router.push({ pathname: '/Cadastro/ExercicioForm', params: { id } });
   };
 
+  if (loading && exercicios.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando exercícios...</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Exercícios</Text>
+
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+        </View>
+      )}
 
       {exercicios.length === 0 ? (
         <Text style={styles.emptyText}>Nenhum exercício cadastrado.</Text>
@@ -76,11 +168,23 @@ export default function ListarExercicios() {
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.editButton} onPress={() => handleEdit(exercicio.id)}>
+              <TouchableOpacity
+                style={[styles.editButton, !isOnline && styles.disabledButton]}
+                onPress={() => handleEdit(exercicio.id)}
+                disabled={!isOnline}
+              >
                 <Text style={styles.buttonText}>Editar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(exercicio.id)}>
-                <Text style={styles.buttonText}>Excluir</Text>
+              <TouchableOpacity
+                style={[styles.deleteButton, deletingId === exercicio.id && styles.disabledButton]}
+                onPress={() => handleDelete(exercicio.id)}
+                disabled={deletingId === exercicio.id || !isOnline}
+              >
+                {deletingId === exercicio.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -99,6 +203,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f8f8',
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40, // Add padding to the bottom for better scrolling
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#7f8c8d',
+    fontSize: 16,
   },
   title: {
     fontSize: 22,
@@ -167,7 +285,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   backButton: {
-    backgroundColor: '#3498db', 
+    backgroundColor: '#3498db',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 5,
@@ -179,5 +297,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6', // Gray out disabled buttons
   },
 });

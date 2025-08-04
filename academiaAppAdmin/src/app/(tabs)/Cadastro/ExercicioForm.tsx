@@ -4,6 +4,8 @@ import { View, Text, TextInput, StyleSheet, ScrollView, TouchableOpacity, Alert 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import { Picker } from '@react-native-picker/picker';
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -21,6 +23,14 @@ export default function ExercicioForm() {
   });
   const [treinos, setTreinos] = useState<{ id: number; nome: string }[]>([]);
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -60,23 +70,40 @@ export default function ExercicioForm() {
 
     const exercicioRequest = {
       nome: form.nome,
+      grupoMuscular: form.grupoMuscular,
       series: parseInt(form.series),
       repeticoes: parseInt(form.repeticoes),
       carga: form.carga ? parseFloat(form.carga) : null,
       descansoSegundos: parseInt(form.descansoSegundos),
       treinoId: parseInt(form.treinoId),
     };
-    
-    try {
 
+    try {
       if (isEdit) {
+        if (!isOnline) {
+          Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+          return;
+        }
         await axios.put(`${API_BASE_URL}/api/exercicios/${id}`, exercicioRequest);
         Alert.alert('Sucesso', 'Exercício atualizado com sucesso!');
         router.replace('/(tabs)/Listagem/ListarExercicios');
       } else {
-        await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
-        Alert.alert('Sucesso', 'Exercício cadastrado com sucesso!');
-        router.back();
+        if (isOnline) {
+          await axios.post(`${API_BASE_URL}/api/exercicios`, exercicioRequest);
+          Alert.alert('Sucesso', 'Exercício cadastrado com sucesso!');
+          router.back();
+        } else {
+          const success = await saveOfflineData(exercicioRequest, 'exercicios');
+          if (success) {
+            Alert.alert(
+              'Offline Mode',
+              'Exercício salvo localmente. Será sincronizado quando você estiver online.',
+              [{ text: 'OK', onPress: () => router.back() }]
+            );
+          } else {
+            Alert.alert('Erro', 'Falha ao salvar o exercício localmente.');
+          }
+        }
       }
     } catch (error) {
       console.error(error);
@@ -176,6 +203,14 @@ export default function ExercicioForm() {
           {isEdit ? 'Salvar Alterações' : 'Salvar Exercício'}
         </Text>
       </TouchableOpacity>
+
+      {!isOnline && !isEdit && (
+        <View style={{ backgroundColor: '#ffc107', padding: 10, borderRadius: 5, marginTop: 10 }}>
+          <Text style={{ color: '#856404', textAlign: 'center' }}>
+            Você está offline. O exercício será salvo localmente e sincronizado quando estiver online.
+          </Text>
+        </View>
+      )}
 
       <TouchableOpacity 
         style={styles.backButton} 

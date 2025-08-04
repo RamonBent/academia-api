@@ -1,8 +1,18 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator // Import ActivityIndicator for loading state
+} from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo'; // Import NetInfo
+import { syncOfflineData } from '../../../services/syncService'; // Import syncOfflineData
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -12,48 +22,103 @@ export default function ListarAvaliacaoFisica() {
   const [avaliacoesFisica, setAvaliacoesFisica] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); // State to track network status
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
-  const { useFocusEffect } = require('expo-router');
-  useFocusEffect(
-    React.useCallback(() => {
-      fetchAvaliacoes();
-    }, [])
-  );
+  // Effect to listen for network changes
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
 
+  // Function to fetch physical evaluations from API
   const fetchAvaliacoes = async () => {
+    setLoading(true);
+    // Only attempt to fetch if online
+    if (!isOnline) {
+      setLoading(false);
+      // In a real offline scenario, you'd load from a local database here
+      return;
+    }
     try {
       const response = await axios.get(`${API_BASE_URL}/api/avaliacoes`);
       setAvaliacoesFisica(response.data);
     } catch (error) {
-      console.error("Erro ao buscar avaliações físicas da API", error);
-      Alert.alert("Erro", "Não foi possível carregar as avaliações físicas");
+      console.error("Erro ao buscar avaliações físicas da API:", error);
+      Alert.alert("Erro", "Não foi possível carregar as avaliações físicas. Verifique sua conexão.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoading(true); // Start loading when screen is focused
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          // If online, try to sync offline data first
+          syncOfflineData().then(() => {
+            fetchAvaliacoes(); // Then fetch fresh data
+          }).catch(syncError => {
+            console.error('Erro durante a sincronização:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
+            fetchAvaliacoes(); // Still try to load data even if sync fails
+          });
+        } else {
+          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
+          fetchAvaliacoes(); // Try to fetch, knowing it might fail
+        }
+      });
+    }, [])
+  );
+
   const handleDelete = async (id) => {
-    setDeletingId(id);
-    try {
-      await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
-      
-      setAvaliacoesFisica(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
-      
-      Alert.alert("Sucesso", "avaliação excluída com sucesso!");
-      
-    } catch (error) {
-      console.error("Erro ao excluir avaliação:", error);
-      Alert.alert("Erro", "Não foi possível excluir a avaliação.");
-      fetchAvaliacoes();
-    } finally {
-      setDeletingId(null);
+    // Prevent deletion if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
+      return;
     }
+
+    Alert.alert('Confirmação', 'Deseja realmente excluir esta avaliação?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(id);
+          try {
+            await axios.delete(`${API_BASE_URL}/api/avaliacoes/${id}`);
+            
+            // Optimistically update the UI
+            setAvaliacoesFisica(prevAvaliacoes => prevAvaliacoes.filter(avaliacao => avaliacao.id !== id));
+            
+            Alert.alert("Sucesso", "Avaliação excluída com sucesso!");
+            
+          } catch (error) {
+            console.error("Erro ao excluir avaliação:", error);
+            Alert.alert("Erro", "Não foi possível excluir a avaliação. Tente novamente.");
+            fetchAvaliacoes(); // Reload data in case of error
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const handleEdit = (id) => {
+    // Prevent editing if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
     router.push({ pathname: '/Cadastro/AvaliacaoFisicaForm', params: { id } });
   };
 
@@ -76,13 +141,26 @@ export default function ListarAvaliacaoFisica() {
     }
   };
 
+  if (loading && avaliacoesFisica.length === 0) {
+    return (
+      <View>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando avaliações...</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Avaliações Físicas</Text>
       
-      {loading ? (
-        <Text style={styles.loadingText}>Carregando...</Text>
-      ) : avaliacoesFisica.length === 0 ? (
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+        </View>
+      )}
+
+      {avaliacoesFisica.length === 0 ? (
         <Text style={styles.emptyText}>Nenhuma avaliação física cadastrada.</Text>
       ) : (
         avaliacoesFisica.map((avaliacao) => (
@@ -124,17 +202,23 @@ export default function ListarAvaliacaoFisica() {
             
             <View style={styles.buttonsContainer}>
               <TouchableOpacity
-                style={[styles.button, styles.editButton]}
+                style={[styles.button, styles.editButton, !isOnline && styles.disabledButton]}
                 onPress={() => handleEdit(avaliacao.id)}
+                disabled={!isOnline}
               >
                 <Text style={styles.buttonText}>Editar</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.button, styles.deleteButton]}
+                style={[styles.button, styles.deleteButton, deletingId === avaliacao.id && styles.disabledButton]}
                 onPress={() => handleDelete(avaliacao.id)}
+                disabled={deletingId === avaliacao.id || !isOnline}
               >
-                <Text style={styles.buttonText}>Excluir</Text>
+                {deletingId === avaliacao.id ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Excluir</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -156,6 +240,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#f8f8f8',
+  },
+  contentContainer: {
+    paddingBottom: 40, // Add padding to the bottom for better scrolling
   },
   title: {
     fontSize: 22,
@@ -247,5 +334,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6', // Gray out disabled buttons
   },
 });

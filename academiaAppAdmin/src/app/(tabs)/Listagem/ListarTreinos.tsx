@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { syncOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -35,10 +37,21 @@ export default function ListarTreinos() {
 
   useFocusEffect(
     React.useCallback(() => {
-      loadTreinos();
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          syncOfflineData().then(() => {
+            loadTreinos();
+          }).catch(syncError => {
+            console.error('Error during sync:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline.');
+            loadTreinos();
+          });
+        } else {
+          loadTreinos();
+        }
+      });
     }, [])
   );
-
 
   const handleDelete = async (id) => {
     Alert.alert('Confirmação', 'Deseja realmente excluir este treino?', [
@@ -122,7 +135,7 @@ export default function ListarTreinos() {
               
               <TouchableOpacity
                 style={[styles.button, styles.deleteButton, 
-                       deletingId === treino.id && styles.disabledButton]}
+                        deletingId === treino.id && styles.disabledButton]}
                 onPress={() => handleDelete(treino.id)}
                 disabled={deletingId === treino.id}
               >

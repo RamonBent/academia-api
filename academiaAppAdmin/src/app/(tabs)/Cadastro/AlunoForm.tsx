@@ -6,8 +6,9 @@ import {
 import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
-
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -35,58 +36,78 @@ export default function AlunoForm() {
   const [treinoIds, setTreinoIds] = useState<number[]>([]);
 
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
   const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => (currentYear - i).toString());
 
+  // Detect network status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Carrega instrutores
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/instrutores`)
-      .then(response => setInstrutores(response.data))
-      .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de instrutores."));
-  }, []);
+    if (isOnline) {
+      axios.get(`${API_BASE_URL}/api/instrutores`)
+        .then(response => setInstrutores(response.data))
+        .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de instrutores."));
+    }
+  }, [isOnline]);
 
   // Carrega treinos
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/treinos`)
-      .then(response => setTreinos(response.data))
-      .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de treinos."));
-  }, []);
+    if (isOnline) {
+      axios.get(`${API_BASE_URL}/api/treinos`)
+        .then(response => setTreinos(response.data))
+        .catch(() => Alert.alert("Erro", "Não foi possível carregar a lista de treinos."));
+    }
+  }, [isOnline]);
 
   // Se for editar, carrega dados do aluno
   useEffect(() => {
     if (id) {
-      axios.get(`${API_BASE_URL}/api/alunos/${id}`)
-        .then(response => {
-          const aluno = response.data;
-          setNome(aluno.nome);
-          if (aluno.dataNascimento) {
-            const date = new Date(aluno.dataNascimento);
-            setSelectedDay(date.getDate().toString());
-            setSelectedMonth((date.getMonth() + 1).toString());
-            setSelectedYear(date.getFullYear().toString());
-            setDataNascimento(formatDate(date));
-          }
-          setEmail(aluno.email);
-          setTelefone(aluno.telefone);
-          setEndereco(aluno.endereco || '');
-          setPlano(aluno.plano || '');
-          setInstrutorId(aluno.instrutorId ? aluno.instrutorId.toString() : null);
-
-          // Preenche treinos selecionados no estado
-          if (aluno.treinosIds && Array.isArray(aluno.treinosIds)) {
-            setTreinoIds(aluno.treinosIds);
-          } else {
-            setTreinoIds([]);
-          }
-
-          setIsEdit(true);
-        })
-        .catch(() => Alert.alert("Erro", "Não foi possível carregar os dados do aluno."));
+      loadAlunoData();
     }
   }, [id]);
+
+  const loadAlunoData = async () => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Não é possível carregar dados para edição.');
+      router.back();
+      return;
+    }
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/alunos/${id}`);
+      const aluno = response.data;
+      setNome(aluno.nome);
+      if (aluno.dataNascimento) {
+        const date = new Date(aluno.dataNascimento);
+        setSelectedDay(date.getDate().toString());
+        setSelectedMonth((date.getMonth() + 1).toString());
+        setSelectedYear(date.getFullYear().toString());
+        setDataNascimento(formatDate(date));
+      }
+      setEmail(aluno.email);
+      setTelefone(aluno.telefone);
+      setEndereco(aluno.endereco || '');
+      setPlano(aluno.plano || '');
+      setInstrutorId(aluno.instrutorId ? aluno.instrutorId.toString() : null);
+      if (aluno.treinosIds && Array.isArray(aluno.treinosIds)) {
+        setTreinoIds(aluno.treinosIds);
+      } else {
+        setTreinoIds([]);
+      }
+      setIsEdit(true);
+    } catch (error) {
+      Alert.alert("Erro", "Não foi possível carregar os dados do aluno para edição.");
+    }
+  };
 
   // Formata data para dd/MM/yyyy
   function formatDate(date: Date): string {
@@ -101,13 +122,13 @@ export default function AlunoForm() {
     if (selectedDay && selectedMonth && selectedYear) {
       const day = selectedDay.padStart(2, '0');
       const month = selectedMonth.padStart(2, '0');
-      setDataNascimento(`${day}/${month}/${selectedYear}`);  // dd/MM/yyyy
+      setDataNascimento(`${day}/${month}/${selectedYear}`);
     }
   }, [selectedDay, selectedMonth, selectedYear]);
 
   // Sugestões nome
   useEffect(() => {
-    if (nome.trim().length > 0) {
+    if (nome.trim().length > 0 && isOnline) {
       axios.get(`${API_BASE_URL}/api/alunos?nome=${nome}`)
         .then(response => {
           const nomes = response.data
@@ -124,7 +145,7 @@ export default function AlunoForm() {
       setNomeSugestoes([]);
       setShowNomeSugestoes(false);
     }
-  }, [nome]);
+  }, [nome, isOnline]);
 
   const selecionarNomeSugestao = (nomeSelecionado: string) => {
     setNome(nomeSelecionado);
@@ -139,7 +160,6 @@ export default function AlunoForm() {
     );
   };
 
-  // Enviar dados para backend
   const handleSubmit = async () => {
     if (!nome || !selectedDay || !selectedMonth || !selectedYear || !email || !telefone) {
       Alert.alert("Erro", "Preencha os campos obrigatórios: Nome, Data de Nascimento, Email e Telefone.");
@@ -148,7 +168,7 @@ export default function AlunoForm() {
 
     const alunoRequest = {
       nome: nome.trim(),
-      dataNascimento: dataNascimento,  // dd/MM/yyyy
+      dataNascimento: dataNascimento,
       email: email.trim(),
       telefone: telefone.trim(),
       endereco: endereco.trim() || null,
@@ -157,19 +177,54 @@ export default function AlunoForm() {
       treinoIds: treinoIds,
     };
 
+    if (isEdit) {
+      await handleEdit(alunoRequest);
+    } else {
+      await handleCreate(alunoRequest);
+    }
+  };
+
+  const handleEdit = async (alunoRequest: any) => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
+
     try {
-      if (isEdit) {
-        await axios.put(`${API_BASE_URL}/api/alunos/${id}`, alunoRequest);
-        Alert.alert("Sucesso", "Aluno atualizado com sucesso!");
-        router.replace('/(tabs)/Listagem/ListarAlunos'); // Vai para a listagem após editar
-      } else {
+      await axios.put(`${API_BASE_URL}/api/alunos/${id}`, alunoRequest);
+      Alert.alert("Sucesso", "Aluno atualizado com sucesso!");
+      router.replace('/(tabs)/Listagem/ListarAlunos');
+    } catch (error: any) {
+      console.error("Erro ao atualizar aluno:", error.response?.data || error.message);
+      Alert.alert("Erro", "Não foi possível atualizar o aluno.");
+    }
+  };
+
+  const handleCreate = async (alunoRequest: any) => {
+    if (isOnline) {
+      try {
         await axios.post(`${API_BASE_URL}/api/alunos`, alunoRequest);
         Alert.alert("Sucesso", "Aluno cadastrado com sucesso!");
         router.back();
+      } catch (error: any) {
+        console.error("Erro ao cadastrar aluno online:", error.response?.data || error.message);
+        await saveOfflineAndAlert(alunoRequest);
       }
-    } catch (error: any) {
-      console.error("Erro ao salvar aluno:", error.response?.data || error.message);
-      Alert.alert("Erro", "Não foi possível salvar o aluno.");
+    } else {
+      await saveOfflineAndAlert(alunoRequest);
+    }
+  };
+
+  const saveOfflineAndAlert = async (alunoRequest: any) => {
+    const success = await saveOfflineData(alunoRequest, 'alunos');
+    if (success) {
+      Alert.alert(
+        'Modo Offline',
+        'Aluno salvo localmente. Os dados serão sincronizados quando a conexão for restaurada.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } else {
+      Alert.alert('Erro', 'Falha ao salvar o aluno localmente.');
     }
   };
 
@@ -180,6 +235,12 @@ export default function AlunoForm() {
           {isEdit ? 'Editar Aluno' : 'Cadastrar Novo Aluno'}
         </Text>
 
+        {!isOnline && !isEdit && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>Você está offline. Os dados serão sincronizados quando a conexão for restaurada.</Text>
+          </View>
+        )}
+        
         {/* Nome */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nome *</Text>
@@ -316,6 +377,7 @@ export default function AlunoForm() {
               onValueChange={(itemValue) => setInstrutorId(itemValue)}
               mode="dropdown"
               style={styles.picker}
+              enabled={isOnline}
             >
               <Picker.Item label="Selecione um instrutor" value={null} />
               {instrutores.map(instrutor => (
@@ -340,6 +402,7 @@ export default function AlunoForm() {
                     selected && styles.treinoItemSelected
                   ]}
                   onPress={() => toggleTreinoSelection(item.id)}
+                  disabled={!isOnline}
                 >
                   <Text style={selected ? styles.treinoTextSelected : styles.treinoText}>
                     {item.nome}
@@ -404,4 +467,15 @@ const styles = StyleSheet.create({
 
   backButton: { backgroundColor: '#6c757d', paddingVertical: 10, borderRadius: 5, marginTop: 20, alignItems: 'center' },
   backButtonText: { color: 'white', fontSize: 16 },
+
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
+  },
 });

@@ -12,7 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
 import NetInfo from '@react-native-community/netinfo';
-import { saveOfflineData, syncOfflineData } from '../../../services/syncService';
+import { saveOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -29,17 +29,15 @@ export default function TreinoForm() {
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected ?? false);
-      
-      if (state.isConnected) {
-        syncOfflineData();
-      }
     });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (id) {
       loadTreinoData();
     }
-
-    return () => unsubscribe();
   }, [id]);
 
   const loadTreinoData = async () => {

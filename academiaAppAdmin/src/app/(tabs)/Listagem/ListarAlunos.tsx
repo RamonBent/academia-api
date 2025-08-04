@@ -3,8 +3,10 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
 } from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router'; // useFocusEffect imported here
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo'; // Import NetInfo
+import { syncOfflineData } from '../../../services/syncService'; // Import syncOfflineData
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -15,16 +17,41 @@ export default function ListarAlunos() {
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); // State to track network status
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
-  const { useFocusEffect } = require('expo-router');
+  // Effect to listen for network changes
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
   useFocusEffect(
     React.useCallback(() => {
-      fetchAlunos();
+      setLoading(true); // Start loading when screen is focused
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          // If online, try to sync offline data first
+          syncOfflineData().then(() => {
+            fetchAlunos(); // Then fetch fresh data
+          }).catch(syncError => {
+            console.error('Erro durante a sincronização:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
+            fetchAlunos(); // Still try to load data even if sync fails
+          });
+        } else {
+          // If offline, just load available data (will fail if no local cache is implemented for fetching)
+          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.');
+          fetchAlunos(); // Try to fetch, knowing it might fail
+        }
+      });
     }, [])
   );
 
+  // Filter students based on search term
   useEffect(() => {
     if (filtro.trim() === '') {
       setAlunosFiltrados(alunos);
@@ -40,13 +67,19 @@ export default function ListarAlunos() {
 
   const fetchAlunos = async () => {
     setLoading(true);
+    // Only attempt to fetch if online
+    if (!isOnline) {
+      setLoading(false);
+      // In a real offline scenario, you'd load from a local database here
+      return; 
+    }
     try {
       console.log("API_BASE_URL:", API_BASE_URL);
       const response = await axios.get(`${API_BASE_URL}/api/alunos`);
       setAlunos(response.data);
       setAlunosFiltrados(response.data);
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar a lista de alunos.");
+      Alert.alert("Erro", "Não foi possível carregar a lista de alunos. Verifique sua conexão.");
       console.error("Erro ao carregar alunos:", error);
     } finally {
       setLoading(false);
@@ -54,24 +87,48 @@ export default function ListarAlunos() {
   };
 
   const deleteAluno = async (id) => {
-    setDeletingId(id);
-    try {
-      await axios.delete(`${API_BASE_URL}/api/alunos/${id}`);
-      
-      setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
-      
-      Alert.alert("Sucesso", "Aluno excluído com sucesso!");
-      
-    } catch (error) {
-      console.error("Erro ao excluir aluno:", error);
-      Alert.alert("Erro", "Não foi possível excluir o aluno.");
-      fetchAlunos();
-    } finally {
-      setDeletingId(null);
+    // Prevent deletion if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
+      return;
     }
+
+    Alert.alert('Confirmação', 'Deseja realmente excluir este aluno?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(id);
+          try {
+            await axios.delete(`${API_BASE_URL}/api/alunos/${id}`);
+            
+            // Optimistically update the UI
+            setAlunos(prevAlunos => prevAlunos.filter(aluno => aluno.id !== id));
+            
+            Alert.alert("Sucesso", "Aluno excluído com sucesso!");
+            
+          } catch (error) {
+            console.error("Erro ao excluir aluno:", error);
+            Alert.alert("Erro", "Não foi possível excluir o aluno. Tente novamente.");
+            fetchAlunos(); // Reload data in case of error
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
   };
 
-  const handleEdit = async (id) => {
+  const handleEdit = (id) => {
+    // Prevent editing if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
     setEditingId(id);
     try {
       router.push({ 
@@ -86,6 +143,23 @@ export default function ListarAlunos() {
     }
   };
 
+  function calcularIdade(dataNascimentoISO) {
+    if (!dataNascimentoISO) return 'N/A';
+    
+    const hoje = new Date();
+    const nascimento = new Date(dataNascimentoISO);
+    
+    if (isNaN(nascimento.getTime())) return 'Data inválida';
+    
+    let idade = hoje.getFullYear() - nascimento.getFullYear();
+    const mes = hoje.getMonth() - nascimento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+      idade--;
+    }
+    return `${idade} anos`;
+  }
+
   if (loading && alunos.length === 0) {
     return (
       <View style={styles.loadingContainer}>
@@ -99,6 +173,12 @@ export default function ListarAlunos() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Alunos</Text>
 
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+        </View>
+      )}
+
       <TextInput
         style={styles.searchInput}
         placeholder="Pesquisar aluno pelo nome"
@@ -106,6 +186,7 @@ export default function ListarAlunos() {
         value={filtro}
         onChangeText={setFiltro}
         autoCapitalize="words"
+        editable={isOnline} // Disable search if offline (as it relies on API)
       />
 
       {alunosFiltrados.length === 0 ? (
@@ -138,7 +219,7 @@ export default function ListarAlunos() {
               <TouchableOpacity
                 style={[styles.button, styles.editButton, editingId === aluno.id && styles.disabledButton]}
                 onPress={() => handleEdit(aluno.id)}
-                disabled={editingId === aluno.id}
+                disabled={editingId === aluno.id || !isOnline} // Disable edit if offline
               >
                 {editingId === aluno.id ? (
                   <ActivityIndicator color="white" />
@@ -150,7 +231,7 @@ export default function ListarAlunos() {
               <TouchableOpacity
                 style={[styles.button, styles.deleteButton, deletingId === aluno.id && styles.disabledButton]}
                 onPress={() => deleteAluno(aluno.id)}
-                disabled={deletingId === aluno.id}
+                disabled={deletingId === aluno.id || !isOnline} // Disable delete if offline
               >
                 {deletingId === aluno.id ? (
                   <ActivityIndicator color="white" />
@@ -314,5 +395,15 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });

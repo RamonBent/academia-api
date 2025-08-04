@@ -3,9 +3,10 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator
 } from 'react-native';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
-
+import { useRouter, useFocusEffect } from 'expo-router'; // useFocusEffect imported here
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { syncOfflineData } from '../../../services/syncService'; // Assuming this path is correct
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -16,16 +17,41 @@ export default function ListarInstrutores() {
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); // State to track network status
   const router = useRouter();
 
-  // Carrega dinamicamente ao focar na tela
-  const { useFocusEffect } = require('expo-router');
+  // Effect to listen for network changes
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Carrega dinamicamente ao focar na tela e sincroniza dados offline
   useFocusEffect(
     React.useCallback(() => {
-      fetchInstrutores();
+      setLoading(true); // Start loading when screen is focused
+      NetInfo.fetch().then(state => {
+        if (state.isConnected) {
+          // If online, try to sync offline data first
+          syncOfflineData().then(() => {
+            fetchInstrutores(); // Then fetch fresh data
+          }).catch(syncError => {
+            console.error('Erro durante a sincronização:', syncError);
+            Alert.alert('Erro de Sincronização', 'Falha ao sincronizar dados offline. Tentando carregar dados existentes.');
+            fetchInstrutores(); // Still try to load data even if sync fails
+          });
+        } else {
+          // If offline, just load available data (will fail if no local cache is implemented)
+          Alert.alert('Modo Offline', 'Você está offline. Os dados podem não estar atualizados.');
+          fetchInstrutores(); // Try to fetch, knowing it might fail
+        }
+      });
     }, [])
   );
 
+  // Filter instructors based on search term
   useEffect(() => {
     if (filtro.trim() === '') {
       setInstrutoresFiltrados(instrutores);
@@ -41,12 +67,19 @@ export default function ListarInstrutores() {
 
   const fetchInstrutores = async () => {
     setLoading(true);
+    // Only attempt to fetch if online
+    if (!isOnline) {
+      setLoading(false);
+      // In a real offline scenario, you'd load from a local database here
+      // Alert.alert("Aviso", "Você está offline. Não é possível carregar a lista de instrutores atualizada.");
+      return; 
+    }
     try {
       const response = await axios.get(`${API_BASE_URL}/api/instrutores`);
       setInstrutores(response.data);
       setInstrutoresFiltrados(response.data);
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível carregar a lista de instrutores.");
+      Alert.alert("Erro", "Não foi possível carregar a lista de instrutores. Verifique sua conexão.");
       console.error("Erro ao carregar instrutores:", error);
     } finally {
       setLoading(false);
@@ -54,24 +87,48 @@ export default function ListarInstrutores() {
   };
 
   const deleteInstrutor = async (id) => {
-    setDeletingId(id);
-    try {
-      await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
-      
-      setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
-      
-      Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
-      
-    } catch (error) {
-      console.error("Erro ao excluir instrutor:", error);
-      Alert.alert("Erro", "Não foi possível excluir o instrutor.");
-      fetchInstrutores();
-    } finally {
-      setDeletingId(null);
+    // Prevent deletion if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Exclusões só podem ser feitas online.');
+      return;
     }
+
+    Alert.alert('Confirmação', 'Deseja realmente excluir este instrutor?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(id);
+          try {
+            await axios.delete(`${API_BASE_URL}/api/instrutores/${id}`);
+            
+            // Optimistically update the UI
+            setInstrutores(prevInstrutores => prevInstrutores.filter(instrutor => instrutor.id !== id));
+            
+            Alert.alert("Sucesso", "Instrutor excluído com sucesso!");
+            
+          } catch (error) {
+            console.error("Erro ao excluir instrutor:", error);
+            Alert.alert("Erro", "Não foi possível excluir o instrutor. Tente novamente.");
+            fetchInstrutores(); // Reload data in case of error
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
   };
 
-  const handleEdit = async (id) => {
+  const handleEdit = (id) => {
+    // Prevent editing if offline
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
     setEditingId(id);
     try {
       router.push({ 
@@ -99,6 +156,12 @@ export default function ListarInstrutores() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Lista de Instrutores</Text>
 
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Você está offline. Os dados podem não estar atualizados e algumas ações estão desabilitadas.</Text>
+        </View>
+      )}
+
       <TextInput
         style={styles.searchInput}
         placeholder="Pesquisar instrutor pelo nome"
@@ -106,6 +169,7 @@ export default function ListarInstrutores() {
         value={filtro}
         onChangeText={setFiltro}
         autoCapitalize="none"
+        editable={isOnline} // Disable search if offline (as it relies on API)
       />
 
       {instrutoresFiltrados.length === 0 ? (
@@ -143,7 +207,7 @@ export default function ListarInstrutores() {
               <TouchableOpacity
                 style={[styles.button, styles.editButton, editingId === instrutor.id && styles.disabledButton]}
                 onPress={() => handleEdit(instrutor.id)}
-                disabled={editingId === instrutor.id}
+                disabled={editingId === instrutor.id || !isOnline} // Disable edit if offline
               >
                 {editingId === instrutor.id ? (
                   <ActivityIndicator color="white" />
@@ -155,7 +219,7 @@ export default function ListarInstrutores() {
               <TouchableOpacity
                 style={[styles.button, styles.deleteButton, deletingId === instrutor.id && styles.disabledButton]}
                 onPress={() => deleteInstrutor(instrutor.id)}
-                disabled={deletingId === instrutor.id}
+                disabled={deletingId === instrutor.id || !isOnline} // Disable delete if offline
               >
                 {deletingId === instrutor.id ? (
                   <ActivityIndicator color="white" />
@@ -302,5 +366,15 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });

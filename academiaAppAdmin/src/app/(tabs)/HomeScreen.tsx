@@ -26,68 +26,6 @@ const chartConfig = {
 
 export default function HomeScreen(){
   const [exercicios, setExercicios] = useState<any[]>([]);
-  const [message, setMessage] = useState('');
-  const [postResponse, setPostResponse] = useState('');
-
-  // Function to fetch data from the backend
-  const fetchHelloMessage = async () => {
-    console.log('--- Attempting to fetch from backend ---');
-    console.log('API_BASE_URL:', API_BASE_URL);
-    const requestUrl = `${API_BASE_URL}/hello`;
-    console.log('Requesting URL:', requestUrl);
-
-    try {
-      // Log the axios request configuration before sending
-      console.log('Axios request config:', {
-        method: 'get',
-        url: requestUrl,
-        headers: {
-          'Accept': 'application/json', // Standard header for JSON response
-          'Content-Type': 'application/json' // If you were sending a body
-        }
-      });
-
-      const response = await axios.get(requestUrl);
-      
-      // Log the full response object
-      console.log('API Response Status:', response.status);
-      console.log('API Response Headers:', response.headers);
-      console.log('API Response Data:', response.data); 
-      
-      Alert.alert('Backend Message', response.data); 
-    } catch (error) {
-      console.error('--- Error fetching hello message ---');
-      console.error('Error object:', error); // Log the full error object for comprehensive debugging
-
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-        Alert.alert(
-          'Backend Error', 
-          `Status: ${error.response.status}\nData: ${JSON.stringify(error.response.data)}`
-        );
-      } else if (error.request) {
-        // The request was made but no response was received
-        // `error.request` is an instance of XMLHttpRequest in the browser and an http.ClientRequest in node.js
-        console.error('Error request (no response received):', error.request);
-        Alert.alert('Network Error', 'No response received from backend. Check network connection or backend availability.');
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error message (request setup issue):', error.message);
-        Alert.alert('Request Error', `An error occurred: ${error.message}`);
-      }
-      Alert.alert('Error', 'Could not connect to backend. Is it running and is the IP correct?');
-    }
-  };
-
-  // Call fetchHelloMessage when the component mounts
-  // This will ensure the API call happens automatically when the screen loads
-  useEffect(() => {
-    fetchHelloMessage();
-  }, []); // Empty dependency array means it runs once on mount
 
   useFocusEffect(
     React.useCallback(() => {
@@ -145,15 +83,6 @@ export default function HomeScreen(){
       <Text style={styles.title}>
         Dashboard de Exercícios
       </Text>
-      
-      {/* Button to manually trigger the API call for debugging */}
-      <View style={styles.buttonContainer}>
-        <Button 
-          title="Test Backend Connection" 
-          onPress={fetchHelloMessage} 
-          color="#350075" // A nice purple to match your chart colors
-        />
-      </View>
 
       <Text style={styles.chartSubtitle}>
         Exercícios por Grupo Muscular (Gráfico de Barras)

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -15,7 +14,8 @@ import {
 import axios from 'axios';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Constants from 'expo-constants';
-
+import NetInfo from '@react-native-community/netinfo';
+import { saveOfflineData } from '../../../services/syncService';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
@@ -23,6 +23,7 @@ export default function AvaliacaoFisicaForm() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [isEdit, setIsEdit] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [avaliacao, setAvaliacao] = useState({
     dataAvaliacao: '',
     peso: '',
@@ -35,28 +36,50 @@ export default function AvaliacaoFisicaForm() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Detect network status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Carrega dados para edição
   useEffect(() => {
     if (id) {
-      axios.get(`${API_BASE_URL}/api/avaliacoes/${id}`)
-        .then(response => {
-          const data = response.data;
-          setAvaliacao({
-            dataAvaliacao: data.dataAvaliacao ? data.dataAvaliacao.split('-').reverse().join('/') : '',
-            peso: data.peso?.toString() || '',
-            altura: data.altura?.toString() || '',
-            imc: data.imc?.toString() || '',
-            observacoes: data.observacoes || '',
-            alunoId: data.alunoId?.toString() || '',
-          });
-          setSearchTerm(data.alunoNome || '');
-          setIsEdit(true);
-        })
-        .catch(() => Alert.alert('Erro', 'Erro ao carregar avaliação para edição.'));
+      loadAvaliacaoData();
     }
   }, [id]);
 
+  const loadAvaliacaoData = async () => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Não é possível carregar dados para edição.');
+      router.back();
+      return;
+    }
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/avaliacoes/${id}`);
+      const data = response.data;
+      setAvaliacao({
+        dataAvaliacao: data.dataAvaliacao ? data.dataAvaliacao.split('-').reverse().join('/') : '',
+        peso: data.peso?.toString() || '',
+        altura: data.altura?.toString() || '',
+        imc: data.imc?.toString() || '',
+        observacoes: data.observacoes || '',
+        alunoId: data.alunoId?.toString() || '',
+      });
+      setSearchTerm(data.alunoNome || '');
+      setIsEdit(true);
+    } catch (error) {
+      Alert.alert('Erro', 'Erro ao carregar avaliação para edição.');
+    }
+  };
+
   const buscarAlunos = async (nome: string) => {
+    if (!isOnline) {
+      setSuggestions([]);
+      return;
+    }
     try {
       const response = await axios.get(`${API_BASE_URL}/api/alunos/buscar?nome=${nome}`);
       setSuggestions(response.data);
@@ -79,16 +102,6 @@ export default function AvaliacaoFisicaForm() {
       }
     }
 
-    if (field === 'dataAvaliacao') {
-      const parts = value.split('/');
-      if (parts.length === 3) {
-        const [dia, mes, ano] = parts;
-        updated.dataAvaliacao = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-      } else {
-        updated.dataAvaliacao = value;
-      }
-    }
-
     setAvaliacao(updated);
   };
 
@@ -107,41 +120,92 @@ export default function AvaliacaoFisicaForm() {
   };
 
   const handleSubmit = async () => {
-    const { alunoId, peso, altura, imc } = avaliacao;
+    const { alunoId, peso, altura, imc, dataAvaliacao } = avaliacao;
 
-    if (!alunoId) {
-      Alert.alert('Erro', 'Selecione um aluno');
+    if (!alunoId || !dataAvaliacao) {
+      Alert.alert('Erro', 'Preencha os campos obrigatórios: Aluno e Data da Avaliação.');
       return;
     }
 
+    // Convertendo a data de DD/MM/AAAA para AAAA-MM-DD
+    const dateParts = dataAvaliacao.split('/');
+    if (dateParts.length !== 3) {
+      Alert.alert('Erro', 'Formato de data inválido. Use DD/MM/AAAA.');
+      return;
+    }
+    const formattedDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+
+    const avaliacaoRequest = {
+      dataAvaliacao: formattedDate,
+      peso: peso ? parseFloat(peso) : null,
+      altura: altura ? parseFloat(altura) : null,
+      imc: imc ? parseFloat(imc) : null,
+      observacoes: avaliacao.observacoes,
+      alunoId: parseInt(alunoId),
+    };
+
+    if (isEdit) {
+      await handleEdit(avaliacaoRequest);
+    } else {
+      await handleCreate(avaliacaoRequest);
+    }
+  };
+
+  const handleEdit = async (avaliacaoRequest: any) => {
+    if (!isOnline) {
+      Alert.alert('Aviso', 'Você está offline. Edições só podem ser feitas online.');
+      return;
+    }
     try {
-      const avaliacaoRequest = {
-        ...avaliacao,
-        peso: parseFloat(peso),
-        altura: parseFloat(altura),
-        imc: parseFloat(imc),
-        alunoId: parseInt(alunoId),
-        dataAvaliacao: avaliacao.dataAvaliacao.split('/').reverse().join('-'),
-      };
-      if (isEdit) {
-        await axios.put(`${API_BASE_URL}/api/avaliacoes/${id}`, avaliacaoRequest);
-        Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
-        router.replace('/(tabs)/Listagem/ListarAvaliacaoFisica');
-      } else {
+      await axios.put(`${API_BASE_URL}/api/avaliacoes/${id}`, avaliacaoRequest);
+      Alert.alert('Sucesso', 'Avaliação atualizada com sucesso!');
+      router.replace('/(tabs)/Listagem/ListarAvaliacaoFisica');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Erro', 'Erro ao atualizar avaliação.');
+    }
+  };
+
+  const handleCreate = async (avaliacaoRequest: any) => {
+    if (isOnline) {
+      try {
         await axios.post(`${API_BASE_URL}/api/avaliacoes`, avaliacaoRequest);
         Alert.alert('Sucesso', 'Avaliação cadastrada com sucesso!');
         router.back();
+      } catch (error) {
+        console.error(error);
+        await saveOfflineAndAlert(avaliacaoRequest);
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Erro ao cadastrar avaliação');
+    } else {
+      await saveOfflineAndAlert(avaliacaoRequest);
+    }
+  };
+
+  const saveOfflineAndAlert = async (avaliacaoRequest: any) => {
+    const success = await saveOfflineData(avaliacaoRequest, 'avaliacoes');
+    if (success) {
+      Alert.alert(
+        'Modo Offline',
+        'Avaliação salva localmente. Os dados serão sincronizados quando a conexão for restaurada.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } else {
+      Alert.alert('Erro', 'Falha ao salvar a avaliação localmente.');
     }
   };
 
   return (
     <TouchableWithoutFeedback onPress={() => setShowSuggestions(false)}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Cadastro de Avaliação Física</Text>
+        <Text style={styles.title}>
+          {isEdit ? 'Editar Avaliação Física' : 'Cadastrar Nova Avaliação Física'}
+        </Text>
+
+        {!isOnline && !isEdit && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>Você está offline. Os dados serão sincronizados quando a conexão for restaurada.</Text>
+          </View>
+        )}
 
         {/* Campo de busca */}
         <View style={styles.inputGroup}>
@@ -151,6 +215,7 @@ export default function AvaliacaoFisicaForm() {
             placeholder="Digite o nome do aluno"
             value={searchTerm}
             onChangeText={handleSearchTextChange}
+            editable={!isEdit && isOnline}
           />
           {showSuggestions && suggestions.length > 0 && (
             <View style={styles.suggestionsContainer}>
@@ -178,6 +243,7 @@ export default function AvaliacaoFisicaForm() {
             style={styles.input}
             placeholder="DD/MM/AAAA"
             keyboardType="numeric"
+            value={avaliacao.dataAvaliacao}
             onChangeText={(text) => handleChange('dataAvaliacao', text)}
           />
         </View>
@@ -225,7 +291,9 @@ export default function AvaliacaoFisicaForm() {
 
         {/* Botões */}
         <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Salvar Avaliação</Text>
+          <Text style={styles.buttonText}>
+            {isEdit ? 'Salvar Alterações' : 'Cadastrar Avaliação'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -306,5 +374,15 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#333',
     fontWeight: 'bold',
+  },
+  offlineBanner: {
+    backgroundColor: '#ffc107',
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+  },
+  offlineText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });
